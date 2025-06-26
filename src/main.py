@@ -189,28 +189,90 @@ def get_categories(knowledge_base: dict) -> list[str]:
 
 def simulate_ccu_data_acquisition(num_records: int) -> pd.DataFrame:
     """
-    Genera un DataFrame di Pandas con dati CCU simulati.
+    Genera un DataFrame di Pandas con dati CCU simulati, includendo trend, rumore e anomalie controllate.
     """
     data = []
     current_time = datetime.now()
-    sensor_statuses = ['OK', 'WARNING', 'ALARM']
 
-    for _ in range(num_records):
-        # Timestamp casuale negli ultimi 5 minuti (300 secondi)
-        timestamp = current_time - timedelta(seconds=random.randint(0, 300))
+    # Parametri per trend lineari
+    wp_start = random.uniform(6000.0, 8000.0)
+    wp_increment = random.uniform(-100.0, 100.0) # Incremento/decremento per record
+    mf_start = random.uniform(900.0, 1100.0)
+    mf_increment = random.uniform(-20.0, 20.0)  # Incremento/decremento per record
+
+    ANOMALY_PROBABILITY = 0.10 # Aumentata leggermente per vederle più spesso in 10 record
+
+    # Per simulare anomalie che durano più record
+    anomaly_active_for = None # Es. ('peak_pressure', 2) -> anomalia attiva per 2 record
+    anomaly_counter = 0
+
+    for i in range(num_records):
+        timestamp = current_time - timedelta(seconds=random.randint(0, 300)) # Mantiene la casualità del timestamp originale
+
+        # Valori base con trend
+        base_wp = wp_start + i * wp_increment
+        base_mf = mf_start + i * mf_increment
+
+        # Aggiungi rumore
+        noise_wp = base_wp * random.uniform(-0.05, 0.05)
+        current_wp = base_wp + noise_wp
+        noise_mf = base_mf * random.uniform(-0.05, 0.05)
+        current_mf = base_mf + noise_mf
+
+        # Clamping base
+        current_wp = max(0, min(current_wp, 18000)) # Pressione non negativa, limite superiore generoso
+        current_mf = max(0, min(current_mf, 2000))  # Portata non negativa
+
+        current_sensor_status = 'OK' # Default
+
+        # Gestione anomalie attive (per durata > 1 record)
+        if anomaly_active_for and anomaly_counter > 0:
+            anomaly_type, _ = anomaly_active_for
+            if anomaly_type == 'peak_pressure':
+                current_wp = random.uniform(11000.0, 15000.0)
+            elif anomaly_type == 'drop_pressure':
+                current_wp = random.uniform(3000.0, 4500.0)
+            elif anomaly_type == 'drop_flow':
+                current_mf = random.uniform(300.0, 500.0)
+            elif anomaly_type == 'high_flow':
+                current_mf = random.uniform(1300.0, 1600.0)
+            elif anomaly_type == 'sensor_issue':
+                current_sensor_status = random.choice(['WARNING', 'ALARM'])
+            anomaly_counter -= 1
+            if anomaly_counter == 0:
+                anomaly_active_for = None # Fine anomalia
+
+        # Iniezione nuove anomalie controllate (solo se non c'è già un'anomalia attiva)
+        elif random.random() < ANOMALY_PROBABILITY:
+            anomaly_duration = random.randint(1, 2) # Anomalia dura 1 o 2 record
+            anomaly_type = random.choice(['peak_pressure', 'drop_pressure', 'drop_flow', 'high_flow', 'sensor_issue'])
+            anomaly_active_for = (anomaly_type, anomaly_duration)
+            anomaly_counter = anomaly_duration
+
+            # Applica l'anomalia al record corrente
+            if anomaly_type == 'peak_pressure':
+                current_wp = random.uniform(11000.0, 15000.0)
+            elif anomaly_type == 'drop_pressure':
+                current_wp = random.uniform(3000.0, 4500.0)
+            elif anomaly_type == 'drop_flow':
+                current_mf = random.uniform(300.0, 500.0)
+            elif anomaly_type == 'high_flow':
+                current_mf = random.uniform(1300.0, 1600.0)
+            elif anomaly_type == 'sensor_issue':
+                current_sensor_status = random.choice(['WARNING', 'ALARM'])
+
 
         record = {
             'timestamp': timestamp,
-            'well_pressure_psi': round(random.uniform(5000.0, 10000.0), 2),
-            'mud_flow_rate_gpm': round(random.uniform(800.0, 1200.0), 2),
-            'bop_ram_position_mm': round(random.uniform(0.0, 250.0), 2),
-            'sensor_status': random.choice(sensor_statuses),
-            'temperature_celsius': round(random.uniform(50.0, 150.0), 2)
+            'well_pressure_psi': round(current_wp, 2),
+            'mud_flow_rate_gpm': round(current_mf, 2),
+            'bop_ram_position_mm': round(random.uniform(0.0, 250.0), 2), # Mantiene casualità semplice
+            'sensor_status': current_sensor_status,
+            'temperature_celsius': round(random.uniform(50.0, 150.0), 2) # Mantiene casualità semplice
         }
         data.append(record)
 
     df = pd.DataFrame(data)
-    # Assicura che i timestamp siano in ordine cronologico (anche se generati casualmente all'indietro)
     df = df.sort_values(by='timestamp').reset_index(drop=True)
     return df
 
