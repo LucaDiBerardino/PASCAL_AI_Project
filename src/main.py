@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import random
 import math
 import sqlite3
-import sys
 
 KNOWLEDGE_BASE_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'knowledge_base.json')
 DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'ccu_data.db')
@@ -249,66 +248,6 @@ def detect_simple_anomalies(df: pd.DataFrame, basic_stats: dict) -> list[dict]:
             anomalies.append(anomaly_record)
     return anomalies
 
-def detect_trends(df: pd.DataFrame, window_size: int = 5, threshold_change_percent: float = 0.02) -> list[dict]:
-    """
-    Rileva trend significativi e costanti nelle colonne specificate di un DataFrame.
-    Restituisce una lista di dizionari, ognuno rappresentante un'anomalia di tendenza.
-    """
-    trend_anomalies = []
-    cols_to_analyze = {
-        'well_pressure_psi': 'Pressione Pozzo',
-        'mud_flow_rate_gpm': 'Portata Fango',
-        'temperature_celsius': 'Temperatura'
-    }
-
-    if df is None or len(df) < window_size:
-        return trend_anomalies
-
-    # Considera solo gli ultimi 'window_size' record per l'analisi di tendenza
-    df_window = df.tail(window_size)
-
-    for col_key, col_name in cols_to_analyze.items():
-        if col_key not in df_window.columns:
-            continue
-
-        series = df_window[col_key].tolist()
-
-        first_val = series[0]
-        last_val = series[-1]
-
-        if first_val == 0:  # Evita divisione per zero
-            continue
-
-        percent_change = ((last_val - first_val) / abs(first_val))
-        abs_percent_change = abs(percent_change)
-
-        if abs_percent_change < threshold_change_percent:
-            continue
-
-        # Verifica la costanza del trend
-        is_increasing_trend = all(series[i] <= series[i+1] for i in range(len(series)-1))
-        is_decreasing_trend = all(series[i] >= series[i+1] for i in range(len(series)-1))
-
-        # Per considerare un trend valido, deve essere strettamente crescente o decrescente
-        # Oltre una certa soglia, non solo uguale per tutta la finestra.
-        # E il cambiamento generale deve essere significativo.
-
-        trend_type_suffix = ""
-        trend_description = ""
-
-        if percent_change > 0 and is_increasing_trend: # Aumento
-            trend_description = f"Trend di {col_name} in AUMENTO: {percent_change*100:.2f}% su ultimi {window_size} record."
-            trend_type_suffix = "_trend_aumento"
-        elif percent_change < 0 and is_decreasing_trend: # Diminuzione
-            trend_description = f"Trend di {col_name} in DIMINUZIONE: {abs(percent_change)*100:.2f}% su ultimi {window_size} record."
-            trend_type_suffix = "_trend_diminuzione"
-
-        if trend_description:
-            anomaly_type_key = f"{col_key}{trend_type_suffix}"
-            trend_anomalies.append({'message': trend_description, 'type': anomaly_type_key})
-
-    return trend_anomalies
-
 def generate_anomaly_report(anomalies_details: list[dict], knowledge_base: dict) -> str:
     if not anomalies_details:
         return "Report Anomalie: Nessuna anomalia significativa rilevata."
@@ -412,13 +351,6 @@ def start_pascal_cli():
         print("Avvio di P.A.S.C.A.L. non riuscito a causa di problemi con la base di conoscenza principale.")
         # Considerare se uscire o continuare con funzionalità limitate
         # return
-
-    # Gestione input da riga di comando
-    if len(sys.argv) > 1:
-        command_line_input = " ".join(sys.argv[1:])
-        process_pascal_command(command_line_input, knowledge_base)
-        return # Esce dopo aver eseguito il comando singolo
-
     print("Ciao! Sono P.A.S.C.A.L. il tuo assistente AI. Digita 'aiuto' per le mie capacità o 'esci' per terminare.")
     while True:
         user_input_original = input("> ").strip()
@@ -426,134 +358,115 @@ def start_pascal_cli():
         if user_input_original.lower() == 'esci':
             print("Arrivederci!")
             break
-        process_pascal_command(user_input_original, knowledge_base)
+        if user_input_original.lower() == 'aiuto':
+            print("\nComandi disponibili:")
+            print("  aiuto - Mostra questo messaggio di aiuto.")
+            print("  esci  - Termina P.A.S.C.A.L.")
+            print("  aggiungi conoscenza - Permette di inserire nuove informazioni nella base di conoscenza.")
+            print("  simula dati ccu - Simula l'acquisizione e l'analisi di dati CCU.")
+            print("  mostra dati storici ccu - Carica e analizza i dati CCU storici.")
+            print("Puoi anche farmi domande dirette, ad esempio 'chi ha dipinto la gioconda'.\n")
+            continue
 
-def process_pascal_command(user_input_original: str, knowledge_base: dict):
-    """Elabora un singolo comando o query per P.A.S.C.A.L."""
-    if user_input_original.lower() == 'aiuto':
-        print("\nComandi disponibili:")
-        print("  aiuto - Mostra questo messaggio di aiuto.")
-        print("  esci  - Termina P.A.S.C.A.L. (solo in modalità interattiva).")
-        print("  aggiungi conoscenza - Permette di inserire nuove informazioni nella base di conoscenza.")
-        print("  simula dati ccu - Simula l'acquisizione e l'analisi di dati CCU.")
-        print("  mostra dati storici ccu - Carica e analizza i dati CCU storici.")
-        print("Puoi anche farmi domande dirette, ad esempio 'chi ha dipinto la gioconda'.\n")
-        return
+        user_input_lower = user_input_original.lower()
 
-    user_input_lower = user_input_original.lower()
+        if user_input_lower == 'aggiungi conoscenza':
+            print("\n--- Aggiunta Nuova Conoscenza ---")
+            if not knowledge_base: print("Attenzione: la base di conoscenza sembra essere vuota o non caricata.")
+            print(f"Categorie esistenti: {get_categories(knowledge_base)}")
+            category_input = input("Inserisci la categoria: ").strip()
+            if not category_input: print("Categoria non valida. Annullamento."); continue
+            key_input = input("Inserisci la domanda o la chiave: ").strip()
+            if not key_input: print("Chiave/domanda non valida. Annullamento."); continue
+            value_input = input("Inserisci la risposta o il valore: ").strip()
+            if not value_input: print("Valore/risposta non valido. Annullamento."); continue
+            if add_knowledge(category_input, key_input, value_input):
+                print("Conoscenza aggiunta con successo!")
+                knowledge_base = load_knowledge_base(KNOWLEDGE_BASE_PATH)
+                if not knowledge_base: print("Attenzione: problemi durante il ricaricamento della KB aggiornata.")
+            else: print("Errore durante l'aggiunta della conoscenza.")
+            print("-----------------------------------\n")
+            continue
 
-    if user_input_lower == 'aggiungi conoscenza':
-        print("\n--- Aggiunta Nuova Conoscenza ---")
-        if not knowledge_base: print("Attenzione: la base di conoscenza sembra essere vuota o non caricata.")
-        # Questa parte richiede input interattivo, quindi potrebbe non funzionare bene se chiamata da riga di comando
-        # senza ulteriori modifiche per gestire input non interattivi per 'aggiungi conoscenza'.
-        # Per lo scopo di questa richiesta, assumiamo che 'aggiungi conoscenza' sia usato interattivamente.
-        print(f"Categorie esistenti: {get_categories(knowledge_base)}")
-        category_input = input("Inserisci la categoria: ").strip()
-        if not category_input: print("Categoria non valida. Annullamento."); return
-        key_input = input("Inserisci la domanda o la chiave: ").strip()
-        if not key_input: print("Chiave/domanda non valida. Annullamento."); return
-        value_input = input("Inserisci la risposta o il valore: ").strip()
-        if not value_input: print("Valore/risposta non valido. Annullamento."); return
-        if add_knowledge(category_input, key_input, value_input):
-            print("Conoscenza aggiunta con successo!")
-            # Ricarica la KB per la sessione corrente se necessario, o assicurati che la modifica sia globale.
-            # Per semplicità, qui non la ricarichiamo esplicitamente assumendo che `add_knowledge` aggiorna il file
-            # e la prossima esecuzione/istanza la caricherà.
-        else: print("Errore durante l'aggiunta della conoscenza.")
-        print("-----------------------------------\n")
-        return
+        if user_input_lower == 'simula dati ccu':
+            print("\n--- Simulazione Dati CCU ---")
+            df_ccu = None # Inizializza per il blocco finally o per controllo
+            analysis = None
+            anomalies_details_list = []
+            sensor_health_assessment = {}
+            try:
+                df_ccu = simulate_ccu_data_acquisition(num_records=10)
+                print("Dati CCU simulati e acquisiti con successo!")
+                print("\nPrime 5 righe dei dati CCU simulati:")
+                print(df_ccu.head().to_string())
 
-    if user_input_lower == 'simula dati ccu':
-        print("\n--- Simulazione Dati CCU ---")
-        df_ccu = None
-        analysis = None
-        anomalies_details_list = []
-        sensor_health_assessment = {}
-        try:
-            df_ccu = simulate_ccu_data_acquisition(num_records=10)
-            print("Dati CCU simulati e acquisiti con successo!")
-            print("\nPrime 5 righe dei dati CCU simulati:")
-            print(df_ccu.head().to_string())
+                analysis = analyze_ccu_data(df_ccu)
+                print("\nAnalisi di base dei dati CCU:")
+                for column_name, stats_dict in analysis.items():
+                    print(f"\nStatistiche per {column_name}:")
+                    if "error" in stats_dict: print(f"  - Errore: {stats_dict['error']}")
+                    else:
+                        for stat_name, stat_value in stats_dict.items():
+                            value_str = f"{stat_value:.2f}" if stat_value is not None else "N/A"
+                            print(f"  - {stat_name.capitalize()}: {value_str}")
 
-            analysis = analyze_ccu_data(df_ccu)
-            print("\nAnalisi di base dei dati CCU:")
-            for column_name, stats_dict in analysis.items():
-                print(f"\nStatistiche per {column_name}:")
-                if "error" in stats_dict: print(f"  - Errore: {stats_dict['error']}")
-                else:
-                    for stat_name, stat_value in stats_dict.items():
-                        value_str = f"{stat_value:.2f}" if stat_value is not None else "N/A"
-                        print(f"  - {stat_name.capitalize()}: {value_str}")
+                anomalies_details_list = detect_simple_anomalies(df_ccu, analysis)
+                anomaly_report_str = generate_anomaly_report(anomalies_details_list, knowledge_base)
+                print(f"\n{anomaly_report_str}")
 
-            anomalies_details_list = detect_simple_anomalies(df_ccu, analysis)
+                sensor_health_assessment = assess_sensor_health(df_ccu)
+                print("\nValutazione Salute Sensori:")
+                print(f"  - Conteggio OK: {sensor_health_assessment.get('OK',0)}")
+                print(f"  - Conteggio WARNING: {sensor_health_assessment.get('WARNING',0)}")
+                print(f"  - Conteggio ALARM: {sensor_health_assessment.get('ALARM',0)}")
+                print(f"  - Percentuale WARNING: {sensor_health_assessment.get('percent_warning',0.0):.2f}%")
+                print(f"  - Percentuale ALARM: {sensor_health_assessment.get('percent_alarm',0.0):.2f}%")
+                print(f"  - Stato Generale Sensori: {sensor_health_assessment.get('overall_health','Indeterminato')}")
 
-            # Rileva anche le anomalie di tendenza
-            trend_anomalies_list = detect_trends(df_ccu, window_size=5, threshold_change_percent=0.02)
+                overall_summary = generate_overall_status_summary(anomalies_details_list, sensor_health_assessment)
+                print("\n\nRiepilogo Stato Sistema:")
+                print(f"  {overall_summary}")
 
-            # Unisci le due liste di anomalie
-            # Nota: anomalies_details_list contiene dizionari, trend_anomalies_list è stata modificata per contenere dizionari
-            # quindi possono essere semplicemente concatenate.
-            if trend_anomalies_list:
-                anomalies_details_list.extend(trend_anomalies_list)
+                if df_ccu is not None and not df_ccu.empty:
+                    if save_ccu_data(df_ccu): print("\nDati CCU simulati salvati nel database per analisi futura.")
+                    else: print("\nErrore durante il salvataggio dei dati CCU simulati nel database.")
 
-            anomaly_report_str = generate_anomaly_report(anomalies_details_list, knowledge_base)
-            print(f"\n{anomaly_report_str}")
+            except Exception as e:
+                print(f"Errore durante la simulazione, analisi o salvataggio dei dati CCU: {e}")
+            print("----------------------------\n")
+            continue
 
-            sensor_health_assessment = assess_sensor_health(df_ccu)
-            print("\nValutazione Salute Sensori:")
-            print(f"  - Conteggio OK: {sensor_health_assessment.get('OK',0)}")
-            print(f"  - Conteggio WARNING: {sensor_health_assessment.get('WARNING',0)}")
-            print(f"  - Conteggio ALARM: {sensor_health_assessment.get('ALARM',0)}")
-            print(f"  - Percentuale WARNING: {sensor_health_assessment.get('percent_warning',0.0):.2f}%")
-            print(f"  - Percentuale ALARM: {sensor_health_assessment.get('percent_alarm',0.0):.2f}%")
-            print(f"  - Stato Generale Sensori: {sensor_health_assessment.get('overall_health','Indeterminato')}")
+        if user_input_lower == 'mostra dati storici ccu':
+            print("\n--- Dati Storici CCU ---")
+            df_historical = load_ccu_data()
+            if not df_historical.empty:
+                print("Dati storici CCU caricati con successo.")
+                print(f"Numero totale di record storici: {len(df_historical)}")
+                print("\nPrime 5 righe dei dati storici CCU:")
+                print(df_historical.head().to_string())
+                historical_analysis = analyze_ccu_data(df_historical)
+                print("\nAnalisi di base dei dati storici CCU:")
+                for column_name, stats_dict in historical_analysis.items():
+                    print(f"\nStatistiche per {column_name}:")
+                    if "error" in stats_dict: print(f"  - Errore: {stats_dict['error']}")
+                    else:
+                        for stat_name, stat_value in stats_dict.items():
+                            value_str = f"{stat_value:.2f}" if stat_value is not None else "N/A"
+                            print(f"  - {stat_name.capitalize()}: {value_str}")
+            else:
+                print("Nessun dato storico CCU da mostrare o errore durante il caricamento.")
+            print("------------------------\n")
+            continue
 
-            overall_summary = generate_overall_status_summary(anomalies_details_list, sensor_health_assessment)
-            print("\n\nRiepilogo Stato Sistema:")
-            print(f"  {overall_summary}")
+        sub_question_strings = decompose_question(user_input_original)
+        collected_answers = []
+        for sub_query_string in sub_question_strings:
+            if not sub_query_string.strip(): continue
+            answer = find_answer_for_query(sub_query_string, knowledge_base)
+            if answer and answer not in collected_answers: collected_answers.append(answer)
 
-            if df_ccu is not None and not df_ccu.empty:
-                if save_ccu_data(df_ccu): print("\nDati CCU simulati salvati nel database per analisi futura.")
-                else: print("\nErrore durante il salvataggio dei dati CCU simulati nel database.")
-
-        except Exception as e:
-            print(f"Errore durante la simulazione, analisi o salvataggio dei dati CCU: {e}")
-        print("----------------------------\n")
-        return
-
-    if user_input_lower == 'mostra dati storici ccu':
-        print("\n--- Dati Storici CCU ---")
-        df_historical = load_ccu_data()
-        if not df_historical.empty:
-            print("Dati storici CCU caricati con successo.")
-            print(f"Numero totale di record storici: {len(df_historical)}")
-            print("\nPrime 5 righe dei dati storici CCU:")
-            print(df_historical.head().to_string())
-            historical_analysis = analyze_ccu_data(df_historical)
-            print("\nAnalisi di base dei dati storici CCU:")
-            for column_name, stats_dict in historical_analysis.items():
-                print(f"\nStatistiche per {column_name}:")
-                if "error" in stats_dict: print(f"  - Errore: {stats_dict['error']}")
-                else:
-                    for stat_name, stat_value in stats_dict.items():
-                        value_str = f"{stat_value:.2f}" if stat_value is not None else "N/A"
-                        print(f"  - {stat_name.capitalize()}: {value_str}")
-        else:
-            print("Nessun dato storico CCU da mostrare o errore durante il caricamento.")
-        print("------------------------\n")
-        return
-
-    sub_question_strings = decompose_question(user_input_original)
-    collected_answers = []
-    for sub_query_string in sub_question_strings:
-        if not sub_query_string.strip(): continue
-        answer = find_answer_for_query(sub_query_string, knowledge_base)
-        if answer and answer not in collected_answers: collected_answers.append(answer)
-
-    if collected_answers: print("\n---\n".join(collected_answers))
-    else: print("Sto ancora imparando. Per ora, posso solo gestire i comandi specifici o cercare alcune parole chiave nella mia conoscenza. Prova 'aiuto'.")
-
+        if collected_answers: print("\n---\n".join(collected_answers))
+        else: print("Sto ancora imparando. Per ora, posso solo gestire i comandi specifici o cercare alcune parole chiave nella mia conoscenza. Prova 'aiuto'.")
 
 if __name__ == "__main__":
     start_pascal_cli()
