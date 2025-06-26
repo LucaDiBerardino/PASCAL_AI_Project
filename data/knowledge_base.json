@@ -1,0 +1,19 @@
+{
+    "domande_generali": {
+        "ciao": "Ciao! Sono P.A.S.C.A.L., il tuo assistente AI. In cosa posso esserti di aiuto?",
+        "aiuto": "Posso rispondere a domande su intelligenza artificiale, energie rinnovabili, termodinamica, sviluppo software, drilling offshore e molto altro.",
+        "come_stai": "Sto funzionando al meglio, grazie per avermelo chiesto! Come posso assisterti oggi?"
+    },
+    "cultura_generale": {
+        "rivoluzione_francese_cause": "Le cause principali della Rivoluzione Francese furono la crisi economica e finanziaria, le profonde disuguaglianze sociali e l'influenza delle idee illuministe.",
+        "rivoluzione_francese_conseguenze": "Le conseguenze più significative della Rivoluzione Francese in Europa includono la diffusione degli ideali di libertà, uguaglianza e fraternità, la fine dell'assolutismo monarchico, l'ascesa del nazionalismo e l'inizio di un'era di conflitti e riforme politiche.",
+        "chi_ha_dipinto_la_gioconda": "La Gioconda (o Monna Lisa) è stata dipinta da Leonardo da Vinci."
+    },
+    "termini_ai": {
+        "intelligenza_artificiale": "L'Intelligenza Artificiale (AI) è un campo dell'informatica che si occupa di creare macchine capaci di simulare l'intelligenza umana.",
+        "machine_learning": "L'Apprendimento Automatico (Machine Learning) è un sottoinsieme dell'AI che permette ai sistemi di imparare dai dati senza essere esplicitamente programmati."
+    },
+    "oil_gas_base": {
+        "bop_test_frequenza": "I test a pressione del BOP (Blowout Preventer) sottomarino devono essere eseguiti periodicamente, spesso ogni 21 giorni o dopo modifiche significative all'impianto, secondo standard come API 53. La pressione di prova è tipicamente 1.5 volte la pressione di esercizio massima per 5 minuti."
+    }
+}
