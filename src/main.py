@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 KNOWLEDGE_BASE_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'knowledge_base.json')
 
@@ -18,12 +19,27 @@ def load_knowledge_base(filepath: str) -> dict:
         print(f"Errore: Il file della base di conoscenza in {filepath} non è un JSON valido.")
         return {}
 
-def normalize_input(text: str) -> str:
+def normalize_input_for_exact_match(text: str) -> str:
     """
-    Normalizza l'input dell'utente per facilitare la ricerca.
-    Sostituisce gli spazi con underscore e converte in minuscolo.
+    Normalizza l'input dell'utente per la ricerca di corrispondenza esatta.
+    Converte in minuscolo, rimuove punteggiatura base, sostituisce spazi con underscore.
     """
-    return text.lower().replace(' ', '_')
+    text = text.lower()
+    # Rimuove la punteggiatura comune ma cerca di preservare parole chiave
+    text = re.sub(r'[^\w\s-]', '', text) # Mantiene alphanumeric, spazi, underscore, trattini
+    text = re.sub(r'\s+', '_', text) # Sostituisce uno o più spazi con un singolo underscore
+    text = text.strip('_') # Rimuove underscore iniziali/finali
+    return text
+
+def normalize_text_for_keyword_search(text: str) -> str:
+    """
+    Normalizza il testo per l'estrazione di parole chiave.
+    Converte in minuscolo, rimuove tutta la punteggiatura, poi splitta per spazi.
+    """
+    text = text.lower()
+    text = re.sub(r'[^\w\s]', '', text) # Rimuove tutta la punteggiatura
+    return text
+
 
 def start_pascal_cli():
     """
@@ -38,51 +54,98 @@ def start_pascal_cli():
     print("Ciao! Sono P.A.S.C.A.L. il tuo assistente AI. Digita 'aiuto' per le mie capacità o 'esci' per terminare.")
 
     while True:
-        user_input = input("> ").strip()
-        normalized_user_input = normalize_input(user_input)
+        user_input_original = input("> ").strip()
 
-        if user_input.lower() == 'esci':
+        if not user_input_original: # Ignora input vuoto
+            continue
+
+        if user_input_original.lower() == 'esci':
             print("Arrivederci!")
             break
 
-        if user_input.lower() == 'aiuto':
+        if user_input_original.lower() == 'aiuto':
             print("Comandi disponibili:")
             print("  aiuto - Mostra questo messaggio di aiuto.")
             print("  esci  - Termina P.A.S.C.A.L.")
-            print("Puoi anche farmi domande dirette, ad esempio 'chi ha dipinto la gioconda' o 'bop test frequenza'.")
+            print("Puoi anche farmi domande dirette, ad esempio 'chi ha dipinto la gioconda' o 'cause rivoluzione francese'.")
             continue
 
-        found_answer = False
-        # Cerca l'input normalizzato nelle chiavi della base di conoscenza
-        for category, questions in knowledge_base.items():
-            if normalized_user_input in questions:
-                print(questions[normalized_user_input])
-                found_answer = True
+        found_answer_text = None
+
+        # --- Strategia 1: Corrispondenza Esatta Normalizzata ---
+        normalized_for_exact = normalize_input_for_exact_match(user_input_original)
+        for category_content in knowledge_base.values():
+            if normalized_for_exact in category_content:
+                found_answer_text = category_content[normalized_for_exact]
                 break
-            # Tentativo di ricerca con chiavi parziali (più complesso, per ora semplice)
-            # Ad esempio, se l'utente scrive "rivoluzione francese" e la chiave è "rivoluzione_francese_cause"
-            # Questo potrebbe essere migliorato con tecniche NLP più avanzate in futuro.
-            # Per ora, ci si aspetta una corrispondenza quasi esatta dopo la normalizzazione.
 
-        if not found_answer:
-            # Un semplice tentativo di matchare se l'input dell'utente è contenuto in una chiave più lunga
-            # Questo è molto basilare e potrebbe dare falsi positivi o mancare corrispondenze volute.
-            # Es. utente: "bop test", chiave: "bop_test_frequenza"
-            possible_match = None
-            for category, questions in knowledge_base.items():
-                for key_kb, answer_kb in questions.items():
-                    if normalized_user_input in key_kb: # Se l'input è una sottostringa di una chiave
-                        possible_match = answer_kb # Troviamo la prima occorrenza
-                        break
-                if possible_match:
-                    break
+        if found_answer_text:
+            print(found_answer_text)
+            continue
 
-            if possible_match:
-                print(possible_match)
-                found_answer = True
+        # --- Strategia 2: Contenimento dell'Input Normalizzato in una Chiave KB ---
+        # (Es. input "bop test", chiave KB "bop_test_frequenza")
+        # Questa è una versione leggermente modificata della precedente logica di fallback
+        if not found_answer_text:
+            best_match_key_strat2 = None
+            # Cerchiamo la chiave più corta che contiene l'input normalizzato per evitare match troppo generici
+            min_len_key_strat2 = float('inf')
 
-        if not found_answer:
-            print("Sto ancora imparando. Per ora, posso solo gestire 'esci', 'aiuto' o cercare alcune parole chiave esatte.")
+            for category_content in knowledge_base.values():
+                for kb_key, kb_answer in category_content.items():
+                    if normalized_for_exact in kb_key:
+                        if len(kb_key) < min_len_key_strat2:
+                            min_len_key_strat2 = len(kb_key)
+                            best_match_key_strat2 = kb_answer
+
+            if best_match_key_strat2:
+                found_answer_text = best_match_key_strat2
+
+        if found_answer_text:
+            print(found_answer_text)
+            continue
+
+        # --- Strategia 3: Ricerca basata su Parole Chiave ---
+        if not found_answer_text:
+            user_keywords = set(normalize_text_for_keyword_search(user_input_original).split())
+
+            if not user_keywords: # Se dopo la normalizzazione non ci sono parole chiave
+                print("Sto ancora imparando. Per ora, posso solo gestire 'esci', 'aiuto' o cercare alcune parole chiave nella mia conoscenza.")
+                continue
+
+            best_match_score = 0
+            best_answer = None
+
+            for category_content in knowledge_base.values():
+                for kb_key, kb_answer in category_content.items():
+                    kb_key_keywords = set(kb_key.split('_')) # Le chiavi KB sono già normalizzate
+
+                    common_keywords = user_keywords.intersection(kb_key_keywords)
+
+                    # Semplice score: numero di parole chiave in comune.
+                    # Si potrebbe pesare di più se tutte le parole utente sono nella chiave,
+                    # o usare metriche come Jaccard index.
+                    score = len(common_keywords)
+
+                    # Diamo una priorità se tutte le parole chiave dell'utente sono presenti nella chiave KB
+                    if common_keywords == user_keywords and score > 0 : # Tutte le parole utente sono nella chiave KB
+                        score += len(user_keywords) # Bonus per specificità
+
+                    if score > best_match_score:
+                        best_match_score = score
+                        best_answer = kb_answer
+                    # Se lo score è uguale, preferiamo una risposta più corta (potrebbe essere più specifica)
+                    # o una chiave KB più corta. Per ora, prendiamo la prima che massimizza lo score.
+
+            # Definiamo una soglia minima per considerare una corrispondenza valida
+            # es. almeno 1 parola chiave in comune e uno score > 0
+            if best_match_score > 0: # Soglia minima (almeno una parola in comune)
+                found_answer_text = best_answer
+
+        if found_answer_text:
+            print(found_answer_text)
+        else:
+            print("Sto ancora imparando. Per ora, posso solo gestire 'esci', 'aiuto' o cercare alcune parole chiave nella mia conoscenza.")
 
 if __name__ == "__main__":
     start_pascal_cli()
