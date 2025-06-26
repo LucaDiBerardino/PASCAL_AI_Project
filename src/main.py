@@ -211,6 +211,25 @@ def simulate_ccu_data_acquisition(num_records: int) -> pd.DataFrame:
     df = df.sort_values(by='timestamp').reset_index(drop=True)
     return df
 
+def analyze_ccu_data(df: pd.DataFrame) -> dict:
+    """
+    Calcola statistiche descrittive di base per le colonne numeriche specificate del DataFrame.
+    """
+    numerical_cols = ['well_pressure_psi', 'mud_flow_rate_gpm', 'bop_ram_position_mm', 'temperature_celsius']
+    analysis_results = {}
+
+    for col in numerical_cols:
+        if col in df.columns:
+            # Calcola le statistiche richieste
+            stats = df[col].agg(['mean', 'std', 'min', 'max']).to_dict()
+            # Arrotonda i valori per una migliore leggibilità
+            analysis_results[col] = {stat_name: round(stat_value, 2) if pd.notnull(stat_value) else None
+                                     for stat_name, stat_value in stats.items()}
+        else:
+            analysis_results[col] = {"error": "Colonna non trovata nel DataFrame"}
+
+    return analysis_results
+
 # --- Funzione principale di ricerca ---
 
 def find_answer_for_query(query_text: str, knowledge_base: dict) -> str | None:
@@ -348,10 +367,21 @@ def start_pascal_cli():
                 print("Dati CCU simulati e acquisiti con successo!")
                 print("\nPrime 5 righe dei dati CCU simulati:")
                 print(df_ccu.head().to_string())
-                # Qui potremmo voler salvare df_ccu in una variabile accessibile globalmente
-                # o passarla a una funzione di elaborazione, per ora la stampiamo e basta.
+
+                # Analisi dei dati CCU
+                analysis = analyze_ccu_data(df_ccu)
+                print("\nAnalisi di base dei dati CCU:")
+                for column_name, stats_dict in analysis.items():
+                    print(f"\nStatistiche per {column_name}:")
+                    if "error" in stats_dict:
+                        print(f"  - Errore: {stats_dict['error']}")
+                    else:
+                        for stat_name, stat_value in stats_dict.items():
+                            # Gestisce il caso in cui stat_value potrebbe essere None (es. std di un singolo valore)
+                            value_str = f"{stat_value:.2f}" if stat_value is not None else "N/A"
+                            print(f"  - {stat_name.capitalize()}: {value_str}")
             except Exception as e:
-                print(f"Errore durante la simulazione dei dati CCU: {e}")
+                print(f"Errore durante la simulazione o analisi dei dati CCU: {e}")
             print("----------------------------\n")
             continue
 
