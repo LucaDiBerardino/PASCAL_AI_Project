@@ -50,61 +50,80 @@ def decompose_question(original_user_input: str) -> list[str]:
     # ma per questo caso semplice, vogliamo splittare *attorno* ad essi.
     # Quindi non catturiamo i delimitatori, ma splittiamo la stringa in base ad essi.
 
-    # Semplifichiamo: cerchiamo " e ", ", e ", " o " come separatori principali.
-    # Per "cos'è X e cos'è Y", lo split su " e " potrebbe essere sufficiente se le parti rimanenti sono query valide.
+    """
+    Scompone l'input dell'utente in potenziali sotto-domande.
+    Fase 1: Splitta per delimitatori di frase (.?!)
+    Fase 2: Per ogni frase, splitta per congiunzioni (e, o, ecc.)
+    """
+    if not original_user_input:
+        return []
 
-    # Un approccio più semplice per iniziare: split su " e " e " o ".
-    # Potremmo dover iterare e raffinare questo.
-    # Usiamo lowercase per il matching delle congiunzioni.
-    input_lower = original_user_input.lower()
+    # Fase 1: Scomposizione per Delimitatori di Frase Forti
+    # Usiamo re.findall per trovare tutte le sottostringhe che terminano con un delimitatore o la fine della stringa.
+    # Questo approccio è generalmente più pulito di split e ricomposizione.
+    sentences = re.findall(r'[^.?!]+(?:[.?!]|$)', original_user_input)
+    if not sentences: # Fallback se findall non trova nulla (es. input senza delimitatori)
+        sentences = [original_user_input]
 
-    # Tentativo di split su " e ", " o ", ", e ", ", o "
-    # Dobbiamo gestire gli spazi attorno alle congiunzioni.
-    # re.split può essere complesso con i gruppi. Un approccio più diretto:
+    final_sub_questions = []
 
-    potential_splits = re.split(r'\s+\b(e|o|e poi|e anche)\b\s+', original_user_input, flags=re.IGNORECASE)
+    # Fase 2: Scomposizione per Congiunzioni per ogni frase
+    conjunction_pattern = r'\s+\b(e|o|oppure|e poi|e anche|ed anche|o anche)\b\s+'
 
-    # Pulizia degli split: re.split può lasciare elementi vuoti o le congiunzioni stesse.
-    sub_questions = []
-    if len(potential_splits) > 1: # Se c'è stato almeno uno split
-        current_sub_question = ""
-        for part in potential_splits:
-            if part.lower().strip() in ["e", "o", "e poi", "e anche"]:
-                if current_sub_question.strip():
-                    sub_questions.append(current_sub_question.strip())
-                current_sub_question = "" # Reset per la prossima parte
-            else:
-                current_sub_question += " " + part # Aggiunge la parte di domanda
-        if current_sub_question.strip(): # Aggiunge l'ultima parte
-             sub_questions.append(current_sub_question.strip())
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if not sentence:
+            continue
 
-        # Filtra eventuali stringhe vuote risultanti da split consecutivi
-        sub_questions = [sq for sq in sub_questions if sq]
+        # Applica lo split per congiunzioni alla frase corrente
+        parts = re.split(conjunction_pattern, sentence, flags=re.IGNORECASE)
 
-    if not sub_questions: # Se nessuno split è avvenuto o ha prodotto risultati validi
-        return [original_user_input.strip()]
+        current_sub_sentence = ""
+        if len(parts) > 1:
+            for part_idx, part_content in enumerate(parts):
+                # Le congiunzioni stesse appaiono come elementi separati nello split se il pattern le cattura.
+                # Il nostro pattern non le cattura esplicitamente nel gruppo principale, quindi dovremmo ottenere solo le parti di testo.
+                # Tuttavia, re.split a volte si comporta in modo strano con i gruppi.
+                # Assicuriamoci di non aggiungere le congiunzioni stesse come sotto-domande.
+                is_conjunction = part_content.lower().strip() in ["e", "o", "oppure", "e poi", "e anche", "ed anche", "o anche"]
 
-    # Ulteriore tentativo di raffinare: se una sotto-domanda è molto corta o sembra una congiunzione residua,
-    # potrebbe essere meglio unirla alla precedente o successiva. Per ora, manteniamo semplice.
-    # Esempio: "cos'è AI e machine learning" -> ["cos'è AI", "machine learning"]
-    # "AI, machine learning e deep learning" -> ["AI, machine learning", "deep learning"] (se split solo su 'e')
+                if not is_conjunction and part_content.strip():
+                    current_sub_sentence += part_content # Aggiunge la parte di testo
+                    # Se la prossima parte è una congiunzione (o siamo alla fine), finalizziamo la current_sub_sentence
+                    is_last_part = (part_idx == len(parts) - 1)
+                    next_part_is_conjunction_or_end = True # Default a True se siamo all'ultimo pezzo
+                    if not is_last_part and (part_idx + 1 < len(parts)):
+                         next_part_is_conjunction_or_end = parts[part_idx+1].lower().strip() in ["e", "o", "oppure", "e poi", "e anche", "ed anche", "o anche"]
 
-    # Per ora, questo split è basilare. Può essere migliorato significativamente.
-    # Ad esempio, "cos'è l'AI e il machine learning" -> split su " e " -> ["cos'è l'AI", "il machine learning"]
-    # La seconda parte "il machine learning" potrebbe non essere una query ideale da sola.
-    # Una decomposizione semantica sarebbe molto più robusta.
+                    if current_sub_sentence.strip() and (is_last_part or next_part_is_conjunction_or_end) :
+                        final_sub_questions.append(current_sub_sentence.strip())
+                        current_sub_sentence = "" # Reset
+                elif is_conjunction and current_sub_sentence.strip():
+                    # Se incontriamo una congiunzione e avevamo qualcosa accumulato, lo salviamo.
+                    final_sub_questions.append(current_sub_sentence.strip())
+                    current_sub_sentence = "" # Reset
+            if current_sub_sentence.strip(): # Aggiunge l'ultima parte se non è vuota
+                final_sub_questions.append(current_sub_sentence.strip())
+        else: # Nessuna congiunzione trovata nella frase
+            final_sub_questions.append(sentence.strip())
 
-    # Se dopo lo split otteniamo solo una domanda, restituiamo l'originale
-    if len(sub_questions) == 1 and sub_questions[0].lower() == original_user_input.lower().strip():
-        return [original_user_input.strip()]
+    # Fase 3: Filtraggio Finale
+    # Rimuovi stringhe vuote e quelle troppo corte (es. solo una parola, a meno che non sia voluta)
+    # Per ora, il filtro di lunghezza > 1 parola è un euristica.
+    filtered_questions = [
+        q.strip() for q in final_sub_questions if q.strip() and len(q.strip().split()) > 1
+    ]
 
-    # Se lo split ha prodotto qualcosa di diverso dall'originale, lo usiamo
-    if sub_questions and not (len(sub_questions) == 1 and sub_questions[0] == original_user_input.strip()):
-         # Rimuoviamo eventuali frasi troppo corte che potrebbero essere solo articoli o congiunzioni residue
-        return [sq for sq in sub_questions if len(sq.split()) > 1] if any(len(sq.split()) > 1 for sq in sub_questions) else [original_user_input.strip()]
+    # Se il filtraggio aggressivo non lascia nulla, ma l'originale aveva contenuto,
+    # restituisci le parti pre-filtraggio (solo strip e non vuote) o l'originale.
+    if not filtered_questions and original_user_input.strip():
+        # Fallback meno aggressivo: prendi tutte le parti non vuote post-congiunzioni
+        less_filtered = [q.strip() for q in final_sub_questions if q.strip()]
+        if less_filtered:
+            return less_filtered
+        return [original_user_input.strip()] # Ultimo fallback
 
-
-    return [original_user_input.strip()]
+    return filtered_questions if filtered_questions else [original_user_input.strip()]
 
 
 def find_answer_for_query(query_text: str, knowledge_base: dict) -> str | None:
