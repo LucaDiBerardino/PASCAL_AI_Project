@@ -277,6 +277,20 @@ def detect_simple_anomalies(df: pd.DataFrame) -> list[str]:
 
     return anomalies
 
+def generate_anomaly_report(anomalies: list[str]) -> str:
+    """
+    Genera una stringa di report formattata per le anomalie rilevate.
+    """
+    if not anomalies:
+        return "Report Anomalie: Nessuna anomalia significativa rilevata."
+
+    report_parts = ["REPORT ANOMALIE RILEVATE:"]
+    for anomaly in anomalies:
+        report_parts.append(f"  - {anomaly}")
+    report_parts.append("\nSi consiglia verifica approfondita dei parametri segnalati.")
+
+    return "\n".join(report_parts)
+
 # --- Funzione principale di ricerca ---
 
 def find_answer_for_query(query_text: str, knowledge_base: dict) -> str | None:
@@ -430,17 +444,15 @@ def start_pascal_cli():
             except Exception as e:
                 print(f"Errore durante la simulazione o analisi dei dati CCU: {e}")
 
-            # Rilevamento anomalie
+            # Rilevamento anomalie e generazione report
             if 'df_ccu' in locals() and df_ccu is not None: # Assicurati che df_ccu esista
                 anomalies_list = detect_simple_anomalies(df_ccu)
-                print("\nRilevamento Anomalie:")
-                if anomalies_list:
-                    for anomaly_message in anomalies_list:
-                        print(f"  - {anomaly_message}")
-                else:
-                    print("  Nessuna anomalia rilevata nei dati CCU.")
+                anomaly_report_str = generate_anomaly_report(anomalies_list)
+                print(f"\n{anomaly_report_str}")
             else:
-                print("\nNon è stato possibile eseguire il rilevamento anomalie perché i dati CCU non sono stati generati.")
+                # Se df_ccu non esiste, generate_anomaly_report gestirà una lista vuota se chiamata,
+                # ma è meglio essere espliciti qui se il problema è la generazione dei dati.
+                print("\nReport Anomalie: Non è stato possibile generare il report perché i dati CCU non sono stati creati.")
 
             print("----------------------------\n")
             continue
