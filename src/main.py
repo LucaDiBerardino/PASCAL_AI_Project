@@ -1,6 +1,9 @@
 import json
 import os
 import re
+import pandas as pd
+from datetime import datetime, timedelta
+import random
 
 KNOWLEDGE_BASE_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'knowledge_base.json')
 
@@ -179,6 +182,35 @@ def get_categories(knowledge_base: dict) -> list[str]:
         return []
     return list(knowledge_base.keys())
 
+# --- Funzioni per la simulazione dei dati CCU ---
+
+def simulate_ccu_data_acquisition(num_records: int) -> pd.DataFrame:
+    """
+    Genera un DataFrame di Pandas con dati CCU simulati.
+    """
+    data = []
+    current_time = datetime.now()
+    sensor_statuses = ['OK', 'WARNING', 'ALARM']
+
+    for _ in range(num_records):
+        # Timestamp casuale negli ultimi 5 minuti (300 secondi)
+        timestamp = current_time - timedelta(seconds=random.randint(0, 300))
+
+        record = {
+            'timestamp': timestamp,
+            'well_pressure_psi': round(random.uniform(5000.0, 10000.0), 2),
+            'mud_flow_rate_gpm': round(random.uniform(800.0, 1200.0), 2),
+            'bop_ram_position_mm': round(random.uniform(0.0, 250.0), 2),
+            'sensor_status': random.choice(sensor_statuses),
+            'temperature_celsius': round(random.uniform(50.0, 150.0), 2)
+        }
+        data.append(record)
+
+    df = pd.DataFrame(data)
+    # Assicura che i timestamp siano in ordine cronologico (anche se generati casualmente all'indietro)
+    df = df.sort_values(by='timestamp').reset_index(drop=True)
+    return df
+
 # --- Funzione principale di ricerca ---
 
 def find_answer_for_query(query_text: str, knowledge_base: dict) -> str | None:
@@ -269,12 +301,16 @@ def start_pascal_cli():
             print("  aiuto - Mostra questo messaggio di aiuto.")
             print("  esci  - Termina P.A.S.C.A.L.")
             print("  aggiungi conoscenza - Permette di inserire nuove informazioni nella base di conoscenza.")
+            print("  simula dati ccu - Simula l'acquisizione di dati dalla Central Control Unit.")
             print("Puoi anche farmi domande dirette, ad esempio 'chi ha dipinto la gioconda' o 'cause rivoluzione francese e conseguenze'.")
             continue
 
-        if user_input_original.lower() == 'aggiungi conoscenza':
+        # Gestione comandi specifici prima della scomposizione/ricerca KB
+        user_input_lower = user_input_original.lower()
+
+        if user_input_lower == 'aggiungi conoscenza':
             print("\n--- Aggiunta Nuova Conoscenza ---")
-            if not knowledge_base: # Caso raro, ma possibile se il file era corrotto e vuoto
+            if not knowledge_base:
                 print("Attenzione: la base di conoscenza sembra essere vuota o non caricata.")
 
             print(f"Categorie esistenti: {get_categories(knowledge_base)}")
@@ -303,6 +339,20 @@ def start_pascal_cli():
             else:
                 print("Errore durante l'aggiunta della conoscenza.")
             print("-----------------------------------\n")
+            continue
+
+        if user_input_lower == 'simula dati ccu':
+            print("\n--- Simulazione Dati CCU ---")
+            try:
+                df_ccu = simulate_ccu_data_acquisition(num_records=10)
+                print("Dati CCU simulati e acquisiti con successo!")
+                print("\nPrime 5 righe dei dati CCU simulati:")
+                print(df_ccu.head().to_string())
+                # Qui potremmo voler salvare df_ccu in una variabile accessibile globalmente
+                # o passarla a una funzione di elaborazione, per ora la stampiamo e basta.
+            except Exception as e:
+                print(f"Errore durante la simulazione dei dati CCU: {e}")
+            print("----------------------------\n")
             continue
 
         sub_question_strings = decompose_question(user_input_original)
