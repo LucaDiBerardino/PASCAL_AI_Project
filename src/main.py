@@ -4,6 +4,7 @@ import re
 import pandas as pd
 from datetime import datetime, timedelta
 import random
+import math
 
 KNOWLEDGE_BASE_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'knowledge_base.json')
 
@@ -230,6 +231,52 @@ def analyze_ccu_data(df: pd.DataFrame) -> dict:
 
     return analysis_results
 
+def detect_simple_anomalies(df: pd.DataFrame) -> list[str]:
+    """
+    Rileva anomalie semplici nei dati CCU basate su soglie predefinite.
+    """
+    anomalies = []
+
+    # Soglie (hardcoded per ora)
+    WELL_PRESSURE_LOW = 5500.0
+    WELL_PRESSURE_HIGH = 9500.0
+    MUD_FLOW_LOW = 850.0
+    MUD_FLOW_HIGH = 1150.0
+    BOP_CLOSED = 0.0
+    BOP_OPEN = 250.0
+    # Usiamo una piccola tolleranza per i confronti in virgola mobile per BOP
+    BOP_TOLERANCE = 0.01
+
+    for row in df.itertuples(index=False): # index=False per non avere 'Index' come primo campo
+        ts = row.timestamp.strftime('%Y-%m-%d %H:%M:%S') # Formatta il timestamp per leggibilità
+
+        # Controllo well_pressure_psi
+        if row.well_pressure_psi < WELL_PRESSURE_LOW:
+            anomalies.append(f"[{ts}] Pressione Pozzo BASSA: {row.well_pressure_psi:.2f} PSI (Soglia < {WELL_PRESSURE_LOW:.2f} PSI)")
+        elif row.well_pressure_psi > WELL_PRESSURE_HIGH:
+            anomalies.append(f"[{ts}] Pressione Pozzo ALTA: {row.well_pressure_psi:.2f} PSI (Soglia > {WELL_PRESSURE_HIGH:.2f} PSI)")
+
+        # Controllo mud_flow_rate_gpm
+        if row.mud_flow_rate_gpm < MUD_FLOW_LOW:
+            anomalies.append(f"[{ts}] Portata Fango BASSA: {row.mud_flow_rate_gpm:.2f} GPM (Soglia < {MUD_FLOW_LOW:.2f} GPM)")
+        elif row.mud_flow_rate_gpm > MUD_FLOW_HIGH:
+            anomalies.append(f"[{ts}] Portata Fango ALTA: {row.mud_flow_rate_gpm:.2f} GPM (Soglia > {MUD_FLOW_HIGH:.2f} GPM)")
+
+        # Controllo bop_ram_position_mm
+        # Considera anomalia se non è vicino a chiuso (0.0) o vicino a completamente aperto (250.0)
+        is_closed = math.isclose(row.bop_ram_position_mm, BOP_CLOSED, abs_tol=BOP_TOLERANCE)
+        is_open = math.isclose(row.bop_ram_position_mm, BOP_OPEN, abs_tol=BOP_TOLERANCE)
+        if not (is_closed or is_open):
+            anomalies.append(f"[{ts}] Posizione RAM BOP anomala: {row.bop_ram_position_mm:.2f} mm (non è Chiuso né Aperto)")
+
+        # Controllo sensor_status
+        if row.sensor_status == 'WARNING':
+            anomalies.append(f"[{ts}] Stato Sensore: WARNING (Parametro: {row.sensor_status} per una delle letture)") # Potremmo voler specificare quale sensore, ma per ora generico
+        elif row.sensor_status == 'ALARM':
+            anomalies.append(f"[{ts}] Stato Sensore: ALARM (Parametro: {row.sensor_status} per una delle letture)")
+
+    return anomalies
+
 # --- Funzione principale di ricerca ---
 
 def find_answer_for_query(query_text: str, knowledge_base: dict) -> str | None:
@@ -382,6 +429,19 @@ def start_pascal_cli():
                             print(f"  - {stat_name.capitalize()}: {value_str}")
             except Exception as e:
                 print(f"Errore durante la simulazione o analisi dei dati CCU: {e}")
+
+            # Rilevamento anomalie
+            if 'df_ccu' in locals() and df_ccu is not None: # Assicurati che df_ccu esista
+                anomalies_list = detect_simple_anomalies(df_ccu)
+                print("\nRilevamento Anomalie:")
+                if anomalies_list:
+                    for anomaly_message in anomalies_list:
+                        print(f"  - {anomaly_message}")
+                else:
+                    print("  Nessuna anomalia rilevata nei dati CCU.")
+            else:
+                print("\nNon è stato possibile eseguire il rilevamento anomalie perché i dati CCU non sono stati generati.")
+
             print("----------------------------\n")
             continue
 
