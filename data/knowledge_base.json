@@ -2,7 +2,8 @@
     "domande_generali": {
         "ciao": "Ciao! Sono P.A.S.C.A.L., il tuo assistente AI. In cosa posso esserti di aiuto?",
         "aiuto": "Posso rispondere a domande su intelligenza artificiale, energie rinnovabili, termodinamica, sviluppo software, drilling offshore e molto altro.",
-        "come_stai": "Sto funzionando al meglio, grazie per avermelo chiesto! Come posso assisterti oggi?"
+        "come_stai": "Sto funzionando al meglio, grazie per avermelo chiesto! Come posso assisterti oggi?",
+        "quali_sono_le_mie_capacita": "Sono P.A.S.C.A.L., un'intelligenza artificiale specializzata in monitoraggio e analisi dati per il settore Oil & Gas, con particolare focus su operazioni BOP sottomarine. Posso simulare acquisizioni dati, analizzare statistiche, rilevare anomalie (di valore e di tendenza), generare report dettagliati con suggerimenti per il problem-solving, valutare la salute dei sensori, e salvare/caricare dati storici per l'analisi. Posso anche rispondere a domande su intelligenza artificiale, energie rinnovabili, termodinamica, sviluppo software e drilling offshore."
     },
     "cultura_generale": {
         "rivoluzione_francese_cause": "Le cause principali della Rivoluzione Francese furono la crisi economica e finanziaria, le profonde disuguaglianze sociali e l'influenza delle idee illuministe.",
