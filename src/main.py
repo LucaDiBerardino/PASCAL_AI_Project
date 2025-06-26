@@ -233,74 +233,84 @@ def analyze_ccu_data(df: pd.DataFrame) -> dict:
 
     return analysis_results
 
-def detect_simple_anomalies(df: pd.DataFrame) -> list[str]:
+def detect_simple_anomalies(df: pd.DataFrame, basic_stats: dict) -> list[dict]:
     """
-    Rileva anomalie semplici nei dati CCU basate su soglie predefinite.
+    Rileva anomalie nei dati CCU.
+    Per i numerici, usa soglie dinamiche basate su media e dev. std.
+    Per sensor_status, usa valori fissi.
     """
     anomalies = []
+    STD_FACTOR = 2.5 # Fattore per la deviazione standard
 
-    # Soglie (hardcoded per ora)
-    WELL_PRESSURE_LOW = 5500.0
-    WELL_PRESSURE_HIGH = 9500.0
-    MUD_FLOW_LOW = 850.0
-    MUD_FLOW_HIGH = 1150.0
+    # Colonne numeriche per analisi dev. std.
+    numerical_cols_for_std_dev_check = ['well_pressure_psi', 'mud_flow_rate_gpm', 'bop_ram_position_mm', 'temperature_celsius']
+
+    # Soglie fisse per BOP (usate se l'analisi dev. std. non è applicabile o in aggiunta)
     BOP_CLOSED = 0.0
     BOP_OPEN = 250.0
-    # Usiamo una piccola tolleranza per i confronti in virgola mobile per BOP
     BOP_TOLERANCE = 0.01
 
-    for row in df.itertuples(index=False): # index=False per non avere 'Index' come primo campo
-        ts = row.timestamp.strftime('%Y-%m-%d %H:%M:%S') # Formatta il timestamp per leggibilità
+    for row in df.itertuples(index=False):
+        ts = row.timestamp.strftime('%Y-%m-%d %H:%M:%S')
         anomaly_record = None
 
-        # Controllo well_pressure_psi
-        if row.well_pressure_psi < WELL_PRESSURE_LOW:
-            anomaly_record = {
-                'message': f"[{ts}] Pressione Pozzo BASSA: {row.well_pressure_psi:.2f} PSI (Soglia < {WELL_PRESSURE_LOW:.2f} PSI)",
-                'type': "pressione_pozzo_bassa"
-            }
-        elif row.well_pressure_psi > WELL_PRESSURE_HIGH:
-            anomaly_record = {
-                'message': f"[{ts}] Pressione Pozzo ALTA: {row.well_pressure_psi:.2f} PSI (Soglia > {WELL_PRESSURE_HIGH:.2f} PSI)",
-                'type': "pressione_pozzo_alta"
-            }
-        if anomaly_record: anomalies.append(anomaly_record); anomaly_record = None # Aggiungi e resetta
+        # Controllo basato su Deviazione Standard per colonne numeriche
+        for col_name in numerical_cols_for_std_dev_check:
+            if col_name not in basic_stats or 'mean' not in basic_stats[col_name] or 'std' not in basic_stats[col_name]:
+                continue # Statistiche non disponibili per questa colonna
 
-        # Controllo mud_flow_rate_gpm
-        if row.mud_flow_rate_gpm < MUD_FLOW_LOW:
-            anomaly_record = {
-                'message': f"[{ts}] Portata Fango BASSA: {row.mud_flow_rate_gpm:.2f} GPM (Soglia < {MUD_FLOW_LOW:.2f} GPM)",
-                'type': "mud_flow_rate_bassa"
-            }
-        elif row.mud_flow_rate_gpm > MUD_FLOW_HIGH:
-            anomaly_record = {
-                'message': f"[{ts}] Portata Fango ALTA: {row.mud_flow_rate_gpm:.2f} GPM (Soglia > {MUD_FLOW_HIGH:.2f} GPM)",
-                'type': "mud_flow_rate_alta"
-            }
-        if anomaly_record: anomalies.append(anomaly_record); anomaly_record = None
+            mean_val = basic_stats[col_name]['mean']
+            std_val = basic_stats[col_name]['std']
+            current_val = getattr(row, col_name)
 
-        # Controllo bop_ram_position_mm
-        is_closed = math.isclose(row.bop_ram_position_mm, BOP_CLOSED, abs_tol=BOP_TOLERANCE)
-        is_open = math.isclose(row.bop_ram_position_mm, BOP_OPEN, abs_tol=BOP_TOLERANCE)
-        if not (is_closed or is_open):
-            anomaly_record = {
-                'message': f"[{ts}] Posizione RAM BOP anomala: {row.bop_ram_position_mm:.2f} mm (non è Chiuso né Aperto)",
-                'type': "bop_posizione_anomala"
-            }
-        if anomaly_record: anomalies.append(anomaly_record); anomaly_record = None
+            if std_val is not None and std_val > 0: # Evita divisione per zero o std non calcolabile
+                lower_bound = mean_val - STD_FACTOR * std_val
+                upper_bound = mean_val + STD_FACTOR * std_val
 
-        # Controllo sensor_status
+                anomaly_type_key = f"{col_name}_dev_std_anomala"
+                msg_prefix = f"[{ts}] Valore {col_name.replace('_', ' ').capitalize()} anomalo (dev. std.): {current_val:.2f}"
+                msg_details = f"(Media: {mean_val:.2f}, Std: {std_val:.2f}, Limiti: [{lower_bound:.2f}, {upper_bound:.2f}])"
+
+                if current_val < lower_bound:
+                    anomaly_record = {'message': f"{msg_prefix} < Soglia Inf. {msg_details}", 'type': anomaly_type_key}
+                    anomalies.append(anomaly_record)
+                    anomaly_record = None
+                elif current_val > upper_bound:
+                    anomaly_record = {'message': f"{msg_prefix} > Soglia Sup. {msg_details}", 'type': anomaly_type_key}
+                    anomalies.append(anomaly_record)
+                    anomaly_record = None
+
+        # Controllo specifico per bop_ram_position_mm con soglie fisse (può coesistere o essere alternativo a dev.std.)
+        # Per ora, manteniamo quello basato su dev.std se std è calcolabile.
+        # Se si volesse un controllo fisso aggiuntivo o alternativo:
+        # if col_name == 'bop_ram_position_mm':
+        #     is_closed = math.isclose(row.bop_ram_position_mm, BOP_CLOSED, abs_tol=BOP_TOLERANCE)
+        #     is_open = math.isclose(row.bop_ram_position_mm, BOP_OPEN, abs_tol=BOP_TOLERANCE)
+        #     if not (is_closed or is_open) and not any(d['type'] == 'bop_ram_position_mm_dev_std_anomala' and d['message'].startswith(f"[{ts}]") for d in anomalies):
+        #         # Aggiungi solo se non già segnalato da dev.std. per lo stesso timestamp
+        #         anomaly_record = {
+        #             'message': f"[{ts}] Posizione RAM BOP anomala (fissa): {row.bop_ram_position_mm:.2f} mm (non è Chiuso né Aperto)",
+        #             'type': "bop_posizione_anomala_fissa"
+        #         }
+        #         anomalies.append(anomaly_record)
+        #         anomaly_record = None
+
+        # Controllo sensor_status (mantiene la logica precedente)
         if row.sensor_status == 'WARNING':
             anomaly_record = {
-                'message': f"[{ts}] Stato Sensore: WARNING (Parametro: {row.sensor_status} per una delle letture)",
-                'type': "sensor_warning" # Chiave generica per warning
+                'message': f"[{ts}] Stato Sensore: WARNING", # Messaggio semplificato
+                'type': "sensor_warning"
             }
         elif row.sensor_status == 'ALARM':
             anomaly_record = {
-                'message': f"[{ts}] Stato Sensore: ALARM (Parametro: {row.sensor_status} per una delle letture)",
-                'type': "sensor_alarm" # Chiave generica per alarm
+                'message': f"[{ts}] Stato Sensore: ALARM", # Messaggio semplificato
+                'type': "sensor_alarm"
             }
-        if anomaly_record: anomalies.append(anomaly_record); anomaly_record = None
+        if anomaly_record:
+            # Evita di aggiungere duplicati di sensor_status se già segnalato da dev_std su un proxy
+            # Questa logica di deduplicazione potrebbe diventare complessa. Per ora, aggiungiamo.
+            anomalies.append(anomaly_record)
+            anomaly_record = None
 
     return anomalies
 
@@ -610,8 +620,8 @@ def start_pascal_cli():
                 print(f"Errore durante la simulazione o analisi dei dati CCU: {e}")
 
             # Rilevamento anomalie e generazione report
-            if 'df_ccu' in locals() and df_ccu is not None: # Assicurati che df_ccu esista
-                anomalies_details_list = detect_simple_anomalies(df_ccu)
+            if 'df_ccu' in locals() and df_ccu is not None and 'analysis' in locals(): # Assicurati che df_ccu e analysis esistano
+                anomalies_details_list = detect_simple_anomalies(df_ccu, analysis)
                 anomaly_report_str = generate_anomaly_report(anomalies_details_list, knowledge_base)
                 print(f"\n{anomaly_report_str}")
             else:
