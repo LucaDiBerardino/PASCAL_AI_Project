@@ -336,6 +336,57 @@ def generate_anomaly_report(anomalies_details: list[dict], knowledge_base: dict)
 
     return "\n".join(report_parts)
 
+def assess_sensor_health(df: pd.DataFrame) -> dict:
+    """
+    Valuta la salute generale dei sensori basandosi sulla colonna 'sensor_status'.
+    """
+    if df is None or df.empty or 'sensor_status' not in df.columns:
+        return {
+            'OK': 0, 'WARNING': 0, 'ALARM': 0,
+            'percent_warning': 0.0, 'percent_alarm': 0.0,
+            'overall_health': 'Indeterminato (dati non disponibili o colonna sensor_status mancante)'
+        }
+
+    counts = df['sensor_status'].value_counts()
+    ok_count = counts.get('OK', 0)
+    warning_count = counts.get('WARNING', 0)
+    alarm_count = counts.get('ALARM', 0)
+
+    total_records = len(df)
+    if total_records == 0: # Dovrebbe essere già gestito da df.empty ma per sicurezza
+        return {
+            'OK': 0, 'WARNING': 0, 'ALARM': 0,
+            'percent_warning': 0.0, 'percent_alarm': 0.0,
+            'overall_health': 'Indeterminato (nessun record)'
+        }
+
+    percent_warning = round((warning_count / total_records) * 100, 2)
+    percent_alarm = round((alarm_count / total_records) * 100, 2)
+
+    # Soglie per la valutazione della salute (possono essere affinate)
+    # Regola più stringente: qualsiasi allarme è critico.
+    ALARM_IS_CRITICAL = True
+    WARNING_ATTENTION_THRESHOLD_PERCENT = 20.0
+    # Se gli allarmi non sono considerati automaticamente critici, si potrebbe usare una soglia %
+    # ALARM_CRITICAL_THRESHOLD_PERCENT = 5.0
+
+    overall_health = 'Stabile'
+    if ALARM_IS_CRITICAL and alarm_count > 0:
+        overall_health = 'Critico'
+    # elif percent_alarm >= ALARM_CRITICAL_THRESHOLD_PERCENT: # Alternativa se non si vuole che un singolo allarme sia critico
+    #     overall_health = 'Critico'
+    elif percent_warning >= WARNING_ATTENTION_THRESHOLD_PERCENT:
+        overall_health = 'Attenzione'
+
+    return {
+        'OK': ok_count,
+        'WARNING': warning_count,
+        'ALARM': alarm_count,
+        'percent_warning': percent_warning,
+        'percent_alarm': percent_alarm,
+        'overall_health': overall_health
+    }
+
 # --- Funzione principale di ricerca ---
 
 def find_answer_for_query(query_text: str, knowledge_base: dict) -> str | None:
@@ -498,6 +549,19 @@ def start_pascal_cli():
                 # Se df_ccu non esiste, generate_anomaly_report gestirà una lista vuota se chiamata,
                 # ma è meglio essere espliciti qui se il problema è la generazione dei dati.
                 print("\nReport Anomalie: Non è stato possibile generare il report perché i dati CCU non sono stati creati.")
+
+            # Valutazione salute sensori
+            if 'df_ccu' in locals() and df_ccu is not None:
+                sensor_health_assessment = assess_sensor_health(df_ccu)
+                print("\nValutazione Salute Sensori:")
+                print(f"  - Conteggio OK: {sensor_health_assessment['OK']}")
+                print(f"  - Conteggio WARNING: {sensor_health_assessment['WARNING']}")
+                print(f"  - Conteggio ALARM: {sensor_health_assessment['ALARM']}")
+                print(f"  - Percentuale WARNING: {sensor_health_assessment['percent_warning']:.2f}%")
+                print(f"  - Percentuale ALARM: {sensor_health_assessment['percent_alarm']:.2f}%")
+                print(f"  - Stato Generale Sensori: {sensor_health_assessment['overall_health']}")
+            else:
+                print("\nValutazione Salute Sensori: Non è stato possibile eseguire la valutazione perché i dati CCU non sono stati generati.")
 
             print("----------------------------\n")
             continue
