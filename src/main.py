@@ -126,6 +126,61 @@ def decompose_question(original_user_input: str) -> list[str]:
     return filtered_questions if filtered_questions else [original_user_input.strip()]
 
 
+# --- Funzioni per la gestione dinamica della Knowledge Base ---
+
+def normalize_key_for_storage(text: str) -> str:
+    """
+    Normalizza una chiave prima di salvarla nella knowledge base.
+    Simile a normalize_input_for_exact_match.
+    """
+    text = text.lower()
+    text = re.sub(r'[^\w\s-]', '', text)
+    text = re.sub(r'\s+', '_', text)
+    return text.strip('_')
+
+def add_knowledge(category: str, key: str, value: str, filepath: str = KNOWLEDGE_BASE_PATH) -> bool:
+    """
+    Aggiunge una nuova voce alla base di conoscenza JSON e la salva.
+    Normalizza la chiave prima di salvarla.
+    """
+    try:
+        # Carica la KB esistente o crea un dizionario vuoto se non esiste/è vuota
+        current_kb = {}
+        if os.path.exists(filepath):
+            with open(filepath, 'r', encoding='utf-8') as f:
+                try:
+                    current_kb = json.load(f)
+                except json.JSONDecodeError:
+                    print(f"Avviso: {filepath} contiene JSON non valido. Sarà sovrascritto se si aggiunge conoscenza.")
+                    current_kb = {} # Inizia con una KB vuota se il file è corrotto
+
+        normalized_key = normalize_key_for_storage(key)
+
+        if category not in current_kb:
+            current_kb[category] = {}
+
+        current_kb[category][normalized_key] = value
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(current_kb, f, indent=4, ensure_ascii=False)
+        return True
+    except IOError as e:
+        print(f"Errore di I/O durante l'aggiunta di conoscenza: {e}")
+        return False
+    except Exception as e:
+        print(f"Errore imprevisto durante l'aggiunta di conoscenza: {e}")
+        return False
+
+def get_categories(knowledge_base: dict) -> list[str]:
+    """
+    Restituisce una lista di tutte le categorie presenti nella base di conoscenza.
+    """
+    if not knowledge_base:
+        return []
+    return list(knowledge_base.keys())
+
+# --- Funzione principale di ricerca ---
+
 def find_answer_for_query(query_text: str, knowledge_base: dict) -> str | None:
     """
     Trova una risposta per una singola query usando le strategie definite.
@@ -213,7 +268,41 @@ def start_pascal_cli():
             print("Comandi disponibili:")
             print("  aiuto - Mostra questo messaggio di aiuto.")
             print("  esci  - Termina P.A.S.C.A.L.")
+            print("  aggiungi conoscenza - Permette di inserire nuove informazioni nella base di conoscenza.")
             print("Puoi anche farmi domande dirette, ad esempio 'chi ha dipinto la gioconda' o 'cause rivoluzione francese e conseguenze'.")
+            continue
+
+        if user_input_original.lower() == 'aggiungi conoscenza':
+            print("\n--- Aggiunta Nuova Conoscenza ---")
+            if not knowledge_base: # Caso raro, ma possibile se il file era corrotto e vuoto
+                print("Attenzione: la base di conoscenza sembra essere vuota o non caricata.")
+
+            print(f"Categorie esistenti: {get_categories(knowledge_base)}")
+            category_input = input("Inserisci la categoria (es. 'storia', 'scienza', 'nuova_categoria'): ").strip()
+            if not category_input:
+                print("Categoria non valida. Annullamento.")
+                continue
+
+            key_input = input("Inserisci la domanda o la chiave (es. 'inventore lampadina'): ").strip()
+            if not key_input:
+                print("Chiave/domanda non valida. Annullamento.")
+                continue
+
+            value_input = input("Inserisci la risposta o il valore: ").strip()
+            if not value_input:
+                print("Valore/risposta non valido. Annullamento.")
+                continue
+
+            # La normalizzazione della chiave avviene dentro add_knowledge
+            if add_knowledge(category_input, key_input, value_input):
+                print("Conoscenza aggiunta con successo!")
+                # Ricarica la KB per rendere disponibili le modifiche immediatamente
+                knowledge_base = load_knowledge_base(KNOWLEDGE_BASE_PATH)
+                if not knowledge_base: # Controllo post-ricarica
+                     print("Attenzione: problemi durante il ricaricamento della base di conoscenza aggiornata.")
+            else:
+                print("Errore durante l'aggiunta della conoscenza.")
+            print("-----------------------------------\n")
             continue
 
         sub_question_strings = decompose_question(user_input_original)
