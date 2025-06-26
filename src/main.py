@@ -267,20 +267,42 @@ def detect_simple_anomalies(df: pd.DataFrame, basic_stats: dict) -> list[dict]:
                 lower_bound = mean_val - STD_FACTOR * std_val
                 upper_bound = mean_val + STD_FACTOR * std_val
 
-                anomaly_type_key = f"{col_name}_dev_std_anomala"
+                # anomaly_type_key = f"{col_name}_dev_std_anomala" # Vecchia chiave generica
                 msg_prefix = f"[{ts}] Valore {col_name.replace('_', ' ').capitalize()} anomalo (dev. std.): {current_val:.2f}"
                 msg_details = f"(Media: {mean_val:.2f}, Std: {std_val:.2f}, Limiti: [{lower_bound:.2f}, {upper_bound:.2f}])"
 
                 if current_val < lower_bound:
+                    anomaly_type_key = f"{col_name}_dev_std_anomala_bassa"
                     anomaly_record = {'message': f"{msg_prefix} < Soglia Inf. {msg_details}", 'type': anomaly_type_key}
                     anomalies.append(anomaly_record)
                     anomaly_record = None
                 elif current_val > upper_bound:
+                    anomaly_type_key = f"{col_name}_dev_std_anomala_alta"
                     anomaly_record = {'message': f"{msg_prefix} > Soglia Sup. {msg_details}", 'type': anomaly_type_key}
                     anomalies.append(anomaly_record)
                     anomaly_record = None
 
         # Controllo specifico per bop_ram_position_mm con soglie fisse (può coesistere o essere alternativo a dev.std.)
+        # Se la deviazione standard per bop_ram_position_mm è molto piccola o zero (es. sempre fermo in posizione anomala),
+        # il controllo dev.std potrebbe non catturarlo come "anomalo" rispetto alla sua stessa media.
+        # In questo caso, un controllo fisso aggiuntivo potrebbe essere utile, ma solo se non già segnalato.
+        # La logica attuale per bop_ram_position_mm è basata su dev.std. se std è > 0.
+        # Se std è 0 e la posizione è anomala (né chiusa né aperta), non verrebbe segnalata dalla logica dev.std.
+        # Per bop_ram_position_mm, il concetto di anomalia spesso è più legato a stati discreti (aperto, chiuso, in movimento)
+        # piuttosto che a una deviazione da una media che potrebbe non essere significativa se il BOP è statico.
+        # Potremmo voler un controllo fisso per BOP SEMPRE ATTIVO, e quello dev.std come aggiuntivo.
+        # Per ora, la richiesta era di basare sui dati statistici, quindi ci atteniamo a quello per i numerici.
+        # Il suggerimento per "bop_ram_position_mm_dev_std_anomala_suggerimento" è generico.
+        # Se volessimo distinguere "bop_ram_position_mm_dev_std_anomala_alta" vs "_bassa", avrebbe meno senso
+        # rispetto a una posizione semplicemente "non standard".
+        # Quindi per BOP, se usiamo dev.std., un solo tipo "_dev_std_anomala" è più logico.
+        # Tuttavia, per coerenza con le altre chiavi "_alta" e "_bassa", modificherò anche questo.
+        # Ma è importante notare che per BOP, "alto" o "basso" rispetto alla media potrebbe non essere il miglior indicatore.
+        # Una soluzione migliore sarebbe avere un controllo fisso per BOP e usare dev.std per gli altri.
+        # Per ora, seguo il pattern di aggiungere _alta/_bassa anche se per BOP è meno intuitivo.
+
+        # La gestione di bop_ram_position_mm è già inclusa nel loop sopra con _alta e _bassa.
+        # Il commento sotto è un residuo di un pensiero precedente su un controllo fisso.
         # Per ora, manteniamo quello basato su dev.std se std è calcolabile.
         # Se si volesse un controllo fisso aggiuntivo o alternativo:
         # if col_name == 'bop_ram_position_mm':
