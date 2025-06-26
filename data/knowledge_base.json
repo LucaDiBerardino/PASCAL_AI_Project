@@ -15,5 +15,14 @@
     },
     "oil_gas_base": {
         "bop_test_frequenza": "I test a pressione del BOP (Blowout Preventer) sottomarino devono essere eseguiti periodicamente, spesso ogni 21 giorni o dopo modifiche significative all'impianto, secondo standard come API 53. La pressione di prova è tipicamente 1.5 volte la pressione di esercizio massima per 5 minuti."
+    },
+    "problem_solving_suggestions": {
+        "pressione_pozzo_bassa_suggerimento": "Una pressione del pozzo bassa può indicare problemi di perdita di fluido di perforazione o insufficiente densità del fango. Verificare i parametri di densità e la circolazione.",
+        "pressione_pozzo_alta_suggerimento": "Un'alta pressione del pozzo potrebbe segnalare un intasamento o un influsso indesiderato (kick). Valutare la circolazione e il bilanciamento idrostatico.",
+        "mud_flow_rate_bassa_suggerimento": "Una bassa portata del fango può indicare problemi alla pompa o un intasamento nelle linee. Controllare la pompa e la pulizia dei condotti.",
+        "mud_flow_rate_alta_suggerimento": "Un'alta portata del fango senza aumento di pressione può indicare la perdita di fluido di perforazione nella formazione (lost circulation).",
+        "bop_posizione_anomala_suggerimento": "La posizione anomala del RAM del BOP richiede un controllo immediato del sistema di controllo BOP e della sua posizione attuale. Assicurarsi che non ci siano comandi non intenzionali o malfunzionamenti idraulici/elettrici.",
+        "sensor_warning_suggerimento": "Lo stato 'WARNING' di un sensore richiede una verifica immediata del sensore e dei parametri associati. Potrebbe essere un malfunzionamento del sensore o l'inizio di un problema.",
+        "sensor_alarm_suggerimento": "Lo stato 'ALARM' di un sensore indica una condizione critica. Agire immediatamente secondo le procedure di emergenza per quel parametro/componente."
     }
 }

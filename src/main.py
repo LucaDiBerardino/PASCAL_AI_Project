@@ -249,45 +249,90 @@ def detect_simple_anomalies(df: pd.DataFrame) -> list[str]:
 
     for row in df.itertuples(index=False): # index=False per non avere 'Index' come primo campo
         ts = row.timestamp.strftime('%Y-%m-%d %H:%M:%S') # Formatta il timestamp per leggibilità
+        anomaly_record = None
 
         # Controllo well_pressure_psi
         if row.well_pressure_psi < WELL_PRESSURE_LOW:
-            anomalies.append(f"[{ts}] Pressione Pozzo BASSA: {row.well_pressure_psi:.2f} PSI (Soglia < {WELL_PRESSURE_LOW:.2f} PSI)")
+            anomaly_record = {
+                'message': f"[{ts}] Pressione Pozzo BASSA: {row.well_pressure_psi:.2f} PSI (Soglia < {WELL_PRESSURE_LOW:.2f} PSI)",
+                'type': "pressione_pozzo_bassa"
+            }
         elif row.well_pressure_psi > WELL_PRESSURE_HIGH:
-            anomalies.append(f"[{ts}] Pressione Pozzo ALTA: {row.well_pressure_psi:.2f} PSI (Soglia > {WELL_PRESSURE_HIGH:.2f} PSI)")
+            anomaly_record = {
+                'message': f"[{ts}] Pressione Pozzo ALTA: {row.well_pressure_psi:.2f} PSI (Soglia > {WELL_PRESSURE_HIGH:.2f} PSI)",
+                'type': "pressione_pozzo_alta"
+            }
+        if anomaly_record: anomalies.append(anomaly_record); anomaly_record = None # Aggiungi e resetta
 
         # Controllo mud_flow_rate_gpm
         if row.mud_flow_rate_gpm < MUD_FLOW_LOW:
-            anomalies.append(f"[{ts}] Portata Fango BASSA: {row.mud_flow_rate_gpm:.2f} GPM (Soglia < {MUD_FLOW_LOW:.2f} GPM)")
+            anomaly_record = {
+                'message': f"[{ts}] Portata Fango BASSA: {row.mud_flow_rate_gpm:.2f} GPM (Soglia < {MUD_FLOW_LOW:.2f} GPM)",
+                'type': "mud_flow_rate_bassa"
+            }
         elif row.mud_flow_rate_gpm > MUD_FLOW_HIGH:
-            anomalies.append(f"[{ts}] Portata Fango ALTA: {row.mud_flow_rate_gpm:.2f} GPM (Soglia > {MUD_FLOW_HIGH:.2f} GPM)")
+            anomaly_record = {
+                'message': f"[{ts}] Portata Fango ALTA: {row.mud_flow_rate_gpm:.2f} GPM (Soglia > {MUD_FLOW_HIGH:.2f} GPM)",
+                'type': "mud_flow_rate_alta"
+            }
+        if anomaly_record: anomalies.append(anomaly_record); anomaly_record = None
 
         # Controllo bop_ram_position_mm
-        # Considera anomalia se non è vicino a chiuso (0.0) o vicino a completamente aperto (250.0)
         is_closed = math.isclose(row.bop_ram_position_mm, BOP_CLOSED, abs_tol=BOP_TOLERANCE)
         is_open = math.isclose(row.bop_ram_position_mm, BOP_OPEN, abs_tol=BOP_TOLERANCE)
         if not (is_closed or is_open):
-            anomalies.append(f"[{ts}] Posizione RAM BOP anomala: {row.bop_ram_position_mm:.2f} mm (non è Chiuso né Aperto)")
+            anomaly_record = {
+                'message': f"[{ts}] Posizione RAM BOP anomala: {row.bop_ram_position_mm:.2f} mm (non è Chiuso né Aperto)",
+                'type': "bop_posizione_anomala"
+            }
+        if anomaly_record: anomalies.append(anomaly_record); anomaly_record = None
 
         # Controllo sensor_status
         if row.sensor_status == 'WARNING':
-            anomalies.append(f"[{ts}] Stato Sensore: WARNING (Parametro: {row.sensor_status} per una delle letture)") # Potremmo voler specificare quale sensore, ma per ora generico
+            anomaly_record = {
+                'message': f"[{ts}] Stato Sensore: WARNING (Parametro: {row.sensor_status} per una delle letture)",
+                'type': "sensor_warning" # Chiave generica per warning
+            }
         elif row.sensor_status == 'ALARM':
-            anomalies.append(f"[{ts}] Stato Sensore: ALARM (Parametro: {row.sensor_status} per una delle letture)")
+            anomaly_record = {
+                'message': f"[{ts}] Stato Sensore: ALARM (Parametro: {row.sensor_status} per una delle letture)",
+                'type': "sensor_alarm" # Chiave generica per alarm
+            }
+        if anomaly_record: anomalies.append(anomaly_record); anomaly_record = None
 
     return anomalies
 
-def generate_anomaly_report(anomalies: list[str]) -> str:
+def generate_anomaly_report(anomalies_details: list[dict], knowledge_base: dict) -> str:
     """
-    Genera una stringa di report formattata per le anomalie rilevate.
+    Genera una stringa di report formattata per le anomalie rilevate,
+    includendo suggerimenti dalla knowledge base.
     """
-    if not anomalies:
+    if not anomalies_details:
         return "Report Anomalie: Nessuna anomalia significativa rilevata."
 
     report_parts = ["REPORT ANOMALIE RILEVATE:"]
-    for anomaly in anomalies:
-        report_parts.append(f"  - {anomaly}")
-    report_parts.append("\nSi consiglia verifica approfondita dei parametri segnalati.")
+    for detail in anomalies_details:
+        report_parts.append(f"  - {detail['message']}")
+
+    suggestions_found = []
+    problem_solving_kb = knowledge_base.get("problem_solving_suggestions", {})
+
+    # Raccogli i tipi unici di anomalie per evitare suggerimenti duplicati
+    unique_anomaly_types = sorted(list(set(detail['type'] for detail in anomalies_details)))
+
+    for anomaly_type in unique_anomaly_types:
+        suggestion_key = f"{anomaly_type}_suggerimento"
+        suggestion = problem_solving_kb.get(suggestion_key)
+        if suggestion:
+            # Formatta il tipo di anomalia per la visualizzazione
+            display_anomaly_type = anomaly_type.replace('_', ' ').capitalize()
+            suggestions_found.append(f"  - Riguardo '{display_anomaly_type}': {suggestion}")
+
+    if suggestions_found:
+        report_parts.append("\n\nSuggerimenti per il Problem Solving:")
+        report_parts.extend(suggestions_found)
+
+    report_parts.append("\n\nSi consiglia verifica approfondita dei parametri segnalati.")
 
     return "\n".join(report_parts)
 
@@ -446,8 +491,8 @@ def start_pascal_cli():
 
             # Rilevamento anomalie e generazione report
             if 'df_ccu' in locals() and df_ccu is not None: # Assicurati che df_ccu esista
-                anomalies_list = detect_simple_anomalies(df_ccu)
-                anomaly_report_str = generate_anomaly_report(anomalies_list)
+                anomalies_details_list = detect_simple_anomalies(df_ccu)
+                anomaly_report_str = generate_anomaly_report(anomalies_details_list, knowledge_base)
                 print(f"\n{anomaly_report_str}")
             else:
                 # Se df_ccu non esiste, generate_anomaly_report gestirà una lista vuota se chiamata,
