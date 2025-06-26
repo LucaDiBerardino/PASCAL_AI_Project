@@ -5,8 +5,10 @@ import pandas as pd
 from datetime import datetime, timedelta
 import random
 import math
+import sqlite3
 
 KNOWLEDGE_BASE_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'knowledge_base.json')
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'ccu_data.db')
 
 def load_knowledge_base(filepath: str) -> dict:
     """
@@ -336,6 +338,72 @@ def generate_anomaly_report(anomalies_details: list[dict], knowledge_base: dict)
 
     return "\n".join(report_parts)
 
+# --- Funzioni per la persistenza dei dati CCU ---
+
+def save_ccu_data(df: pd.DataFrame, db_path: str = DB_PATH) -> bool:
+    """
+    Salva il DataFrame dei dati CCU in un database SQLite.
+    Aggiunge i dati se la tabella esiste, altrimenti la crea.
+    """
+    if df is None or df.empty:
+        print("Nessun dato CCU da salvare.")
+        return False
+    try:
+        # Assicurati che la directory data esista
+        data_dir = os.path.dirname(db_path)
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
+            print(f"Creata directory: {data_dir}")
+
+        conn = sqlite3.connect(db_path)
+        # Converti colonna timestamp in stringa prima di salvare, se è datetime.
+        # SQLite non ha un tipo datetime nativo, pandas lo gestisce ma è buona norma essere espliciti.
+        # df_to_save = df.copy()
+        # if 'timestamp' in df_to_save.columns and pd.api.types.is_datetime64_any_dtype(df_to_save['timestamp']):
+        #     df_to_save['timestamp'] = df_to_save['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S.%f')
+
+        # Pandas gestisce la conversione dei tipi datetime per SQLite automaticamente.
+        df.to_sql('ccu_readings', conn, if_exists='append', index=False)
+        conn.close()
+        return True
+    except sqlite3.Error as e:
+        print(f"Errore SQLite durante il salvataggio dei dati CCU: {e}")
+        return False
+    except Exception as e:
+        print(f"Errore imprevisto durante il salvataggio dei dati CCU: {e}")
+        return False
+
+def load_ccu_data(db_path: str = DB_PATH) -> pd.DataFrame:
+    """
+    Carica tutti i dati dalla tabella 'ccu_readings' del database SQLite.
+    Restituisce un DataFrame vuoto se la tabella/db non esiste o in caso di errore.
+    """
+    if not os.path.exists(db_path):
+        # print("File database non trovato.") # Potrebbe essere troppo verboso per ogni chiamata
+        return pd.DataFrame()
+    try:
+        conn = sqlite3.connect(db_path)
+        # Verifica se la tabella esiste prima di tentare di leggerla
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ccu_readings';")
+        if cursor.fetchone() is None:
+            conn.close()
+            return pd.DataFrame() # Tabella non esiste
+
+        df = pd.read_sql_query("SELECT * FROM ccu_readings", conn)
+        conn.close()
+
+        # Converti la colonna 'timestamp' in oggetti datetime di Pandas, se presente
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+        return df
+    except sqlite3.Error as e:
+        print(f"Errore SQLite durante il caricamento dei dati CCU: {e}")
+        return pd.DataFrame()
+    except Exception as e:
+        print(f"Errore imprevisto durante il caricamento dei dati CCU: {e}")
+        return pd.DataFrame()
+
 def assess_sensor_health(df: pd.DataFrame) -> dict:
     """
     Valuta la salute generale dei sensori basandosi sulla colonna 'sensor_status'.
@@ -477,7 +545,8 @@ def start_pascal_cli():
             print("  aiuto - Mostra questo messaggio di aiuto.")
             print("  esci  - Termina P.A.S.C.A.L.")
             print("  aggiungi conoscenza - Permette di inserire nuove informazioni nella base di conoscenza.")
-            print("  simula dati ccu - Simula l'acquisizione di dati dalla Central Control Unit.")
+            print("  simula dati ccu - Simula l'acquisizione e l'analisi di dati CCU.")
+            print("  mostra dati storici ccu - Carica e analizza i dati CCU storici.")
             print("Puoi anche farmi domande dirette, ad esempio 'chi ha dipinto la gioconda' o 'cause rivoluzione francese e conseguenze'.")
             continue
 
@@ -560,10 +629,48 @@ def start_pascal_cli():
                 print(f"  - Percentuale WARNING: {sensor_health_assessment['percent_warning']:.2f}%")
                 print(f"  - Percentuale ALARM: {sensor_health_assessment['percent_alarm']:.2f}%")
                 print(f"  - Stato Generale Sensori: {sensor_health_assessment['overall_health']}")
+
+                # Salva i dati CCU simulati nel database
+                if save_ccu_data(df_ccu):
+                    print("\nDati CCU simulati salvati nel database per analisi futura.")
+                else:
+                    print("\nErrore durante il salvataggio dei dati CCU simulati nel database.")
             else:
                 print("\nValutazione Salute Sensori: Non è stato possibile eseguire la valutazione perché i dati CCU non sono stati generati.")
 
             print("----------------------------\n")
+            continue
+
+        if user_input_lower == 'mostra dati storici ccu':
+            print("\n--- Dati Storici CCU ---")
+            df_historical = load_ccu_data()
+            if not df_historical.empty:
+                print("Dati storici CCU caricati con successo.")
+                print(f"Numero totale di record storici: {len(df_historical)}")
+                print("\nPrime 5 righe dei dati storici CCU:")
+                print(df_historical.head().to_string())
+
+                # Analisi dei dati storici
+                historical_analysis = analyze_ccu_data(df_historical)
+                print("\nAnalisi di base dei dati storici CCU:")
+                for column_name, stats_dict in historical_analysis.items():
+                    print(f"\nStatistiche per {column_name}:")
+                    if "error" in stats_dict:
+                        print(f"  - Errore: {stats_dict['error']}")
+                    else:
+                        for stat_name, stat_value in stats_dict.items():
+                            value_str = f"{stat_value:.2f}" if stat_value is not None else "N/A"
+                            print(f"  - {stat_name.capitalize()}: {value_str}")
+
+                # (Opzionale) Potremmo aggiungere anche il rilevamento anomalie e salute sensori per i dati storici qui
+                # historical_anomalies = detect_simple_anomalies(df_historical)
+                # print(generate_anomaly_report(historical_anomalies, knowledge_base))
+                # historical_sensor_health = assess_sensor_health(df_historical)
+                # ... e stampare health assessment ...
+
+            else:
+                print("Nessun dato storico CCU da mostrare o errore durante il caricamento.")
+            print("------------------------\n")
             continue
 
         sub_question_strings = decompose_question(user_input_original)
