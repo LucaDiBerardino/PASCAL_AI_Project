@@ -1,58 +1,77 @@
 {
-    "domande_generali": {
-        "ciao": "Ciao! Sono P.A.S.C.A.L., il tuo assistente AI. In cosa posso esserti di aiuto?",
-        "aiuto": "Posso rispondere a domande su intelligenza artificiale, energie rinnovabili, termodinamica, sviluppo software, drilling offshore e molto altro.",
-        "come_stai": "Sto funzionando al meglio, grazie per avermelo chiesto! Come posso assisterti oggi?",
-        "quali_sono_le_mie_capacita": "Sono P.A.S.C.A.L., un'intelligenza artificiale specializzata in monitoraggio e analisi dati per il settore Oil & Gas, con particolare focus su operazioni BOP sottomarine. Posso simulare acquisizioni dati, analizzare statistiche, rilevare anomalie (di valore e di tendenza), generare report dettagliati con suggerimenti per il problem-solving, valutare la salute dei sensori, e salvare/caricare dati storici per l'analisi. Posso anche rispondere a domande su intelligenza artificiale, energie rinnovabili, termodinamica, sviluppo software e drilling offshore."
+  "entries": [
+    {
+      "id": 1,
+      "domanda": "Cos'è l'energia?",
+      "varianti_domanda": [
+        "Spiegami il concetto di energia",
+        "Dammi una definizione di energia",
+        "Cosa si intende per energia?"
+      ],
+      "risposta": "L'energia è una proprietà fondamentale dei sistemi fisici che si manifesta in varie forme e rappresenta la capacità di compiere lavoro. Può essere trasferita o convertita, ma non creata né distrutta.",
+      "level": "general",
+      "specificity_score": 10,
+      "parent_concept": null,
+      "followup_suggestions": [
+        "Potrei spiegarti le diverse forme di energia (cinetica, potenziale, termica, ecc.).",
+        "Vuoi sapere della Legge di Conservazione dell'Energia?"
+      ],
+      "related_ids": [2, 3],
+      "category": "fisica"
     },
-    "cultura_generale": {
-        "rivoluzione_francese_cause": "Le cause principali della Rivoluzione Francese furono la crisi economica e finanziaria, le profonde disuguaglianze sociali e l'influenza delle idee illuministe.",
-        "rivoluzione_francese_conseguenze": "Le conseguenze più significative della Rivoluzione Francese in Europa includono la diffusione degli ideali di libertà, uguaglianza e fraternità, la fine dell'assolutismo monarchico, l'ascesa del nazionalismo e l'inizio di un'era di conflitti e riforme politiche.",
-        "chi_ha_dipinto_la_gioconda": "La Gioconda (o Monna Lisa) è stata dipinta da Leonardo da Vinci.",
-        "autore_divina_commedia": "La Divina Commedia è stata scritta da Dante Alighieri.",
-        "capitale_australia": "La capitale dell'Australia è Canberra.",
-        "fotosintesi_clorofilliana_definizione": "La fotosintesi clorofilliana è il processo biochimico attraverso il quale le piante verdi e altri organismi producono sostanze organiche – principalmente carboidrati – a partire da anidride carbonica (CO2) e acqua (H2O) in presenza di luce solare.",
-        "inizio_seconda_guerra_mondiale": "La Seconda Guerra Mondiale è iniziata il 1° settembre 1939 con l'invasione della Polonia da parte della Germania.",
-        "autore_notte_stellata": "La Notte Stellata è un dipinto olio su tela del pittore olandese post-impressionista Vincent van Gogh, realizzato nel giugno 1889.",
-        "pianeta_piu_grande_sistema_solare": "Il pianeta più grande del nostro sistema solare è Giove.",
-        "teorema_di_pitagora_definizione": "In ogni triangolo rettangolo, l'area del quadrato costruito sull'ipotenusa è uguale alla somma delle aree dei quadrati costruiti sui cateti. Matematicamente: a² + b² = c², dove c è l'ipotenusa e a, b sono i cateti.",
-        "energia_definizione_concetto_generale": "L'energia è la capacità di un sistema fisico di compiere lavoro. Si manifesta in varie forme (cinetica, potenziale, termica, elettrica, chimica, nucleare, etc.) ed è soggetta al principio di conservazione, secondo cui non può essere creata né distrutta, ma solo trasformata da una forma all'altra."
+    {
+      "id": 2,
+      "domanda": "Cos'è l'energia cinetica?",
+      "varianti_domanda": [
+        "Spiegami energia cinetica",
+        "Definizione di energia di movimento"
+      ],
+      "risposta": "L'energia cinetica è l'energia che un corpo possiede in virtù del suo movimento. Dipende dalla sua massa e dalla sua velocità (formula: 0.5 * massa * velocità^2).",
+      "level": "specific",
+      "specificity_score": 50,
+      "parent_concept": 1,
+      "followup_suggestions": [
+        "Vuoi un esempio di calcolo dell'energia cinetica?",
+        "Qual è la relazione con l'energia potenziale?"
+      ],
+      "related_ids": [3],
+      "category": "fisica"
     },
-    "termini_ai": {
-        "intelligenza_artificiale": "L'Intelligenza Artificiale (AI) è un campo dell'informatica che si occupa di creare macchine capaci di simulare l'intelligenza umana.",
-        "machine_learning": "L'Apprendimento Automatico (Machine Learning) è un sottoinsieme dell'AI che permette ai sistemi di imparare dai dati senza essere esplicitamente programmati."
+    {
+      "id": 3,
+      "domanda": "Cos'è l'energia potenziale?",
+      "varianti_domanda": [
+        "Spiegami energia potenziale",
+        "Definizione di energia di posizione"
+      ],
+      "risposta": "L'energia potenziale è l'energia immagazzinata in un corpo o sistema a causa della sua posizione o configurazione, pronta per essere convertita in altre forme di energia (es. energia potenziale gravitazionale).",
+      "level": "specific",
+      "specificity_score": 50,
+      "parent_concept": 1,
+      "followup_suggestions": [
+        "Vuoi sapere dell'energia potenziale gravitazionale?",
+        "Qual è la relazione con l'energia cinetica?"
+      ],
+      "related_ids": [2],
+      "category": "fisica"
     },
-    "oil_gas_base": {
-        "bop_test_frequenza": "I test a pressione del BOP (Blowout Preventer) sottomarino devono essere eseguiti periodicamente, spesso ogni 21 giorni o dopo modifiche significative all'impianto, secondo standard come API 53. La pressione di prova è tipicamente 1.5 volte la pressione di esercizio massima per 5 minuti."
-    },
-    "ingegneria_elettronica_base": {
-        "legge_di_ohm_definizione": "La Legge di Ohm afferma che, in un conduttore metallico a temperatura costante, la differenza di potenziale (V) applicata ai suoi capi è direttamente proporzionale all'intensità della corrente elettrica (I) che lo attraversa. Matematicamente, V = I * R, dove R è la resistenza elettrica del conduttore.",
-        "transistore_definizione": "Un transistore è un dispositivo a semiconduttore utilizzato principalmente per amplificare o commutare segnali elettronici e potenza elettrica. È un componente fondamentale dell'elettronica moderna.",
-        "corrente_alternata_ac_definizione": "La corrente alternata (AC) è un tipo di corrente elettrica in cui la direzione del flusso di elettroni si inverte periodicamente nel tempo, tipicamente con una forma d'onda sinusoidale. È il tipo di corrente fornita dalle reti elettriche domestiche.",
-        "corrente_continua_dc_definizione": "La corrente continua (DC) è un tipo di corrente elettrica in cui il flusso di elettroni avviene sempre nella stessa direzione. È prodotta da batterie, pile e alimentatori DC.",
-        "voltmetro_cosa_misura": "Un voltmetro è uno strumento di misura utilizzato per determinare la differenza di potenziale elettrico, o tensione, tra due punti di un circuito elettrico."
-    },
-    "problem_solving_suggestions": {
-        "pressione_pozzo_bassa_suggerimento": "Una pressione del pozzo bassa può indicare problemi di perdita di fluido di perforazione o insufficiente densità del fango. Verificare i parametri di densità e la circolazione.",
-        "pressione_pozzo_alta_suggerimento": "Un'alta pressione del pozzo potrebbe segnalare un intasamento o un influsso indesiderato (kick). Valutare la circolazione e il bilanciamento idrostatico.",
-        "mud_flow_rate_bassa_suggerimento": "Una bassa portata del fango può indicare problemi alla pompa o un intasamento nelle linee. Controllare la pompa e la pulizia dei condotti.",
-        "mud_flow_rate_alta_suggerimento": "Un'alta portata del fango senza aumento di pressione può indicare la perdita di fluido di perforazione nella formazione (lost circulation).",
-        "bop_posizione_anomala_suggerimento": "La posizione anomala del RAM del BOP richiede un controllo immediato del sistema di controllo BOP e della sua posizione attuale. Assicurarsi che non ci siano comandi non intenzionali o malfunzionamenti idraulici/elettrici.",
-        "sensor_warning_suggerimento": "Lo stato 'WARNING' di un sensore richiede una verifica immediata del sensore e dei parametri associati. Potrebbe essere un malfunzionamento del sensore o l'inizio di un problema.",
-        "sensor_alarm_suggerimento": "Lo stato 'ALARM' di un sensore indica una condizione critica. Agire immediatamente secondo le procedure di emergenza per quel parametro/componente.",
-        "well_pressure_psi_dev_std_anomala_alta_suggerimento": "Un valore di pressione del pozzo significativamente al di sopra della media (oltre X deviazioni standard) potrebbe indicare un accumulo di pressione, un potenziale 'kick' o un'ostruzione. Verificare immediatamente le procedure di controllo del pozzo e i parametri di circolazione.",
-        "well_pressure_psi_dev_std_anomala_bassa_suggerimento": "Un valore di pressione del pozzo significativamente al di sotto della media (oltre X deviazioni standard) potrebbe indicare una perdita di pressione, una perdita di fluido di perforazione nella formazione o un problema con la densità del fango. Verificare attentamente i volumi di riempimento del pozzo e i parametri del fango.",
-        "mud_flow_rate_gpm_dev_std_anomala_alta_suggerimento": "Una portata del fango significativamente superiore alla media potrebbe indicare un afflusso di fluido dalla formazione. Attivare le procedure di controllo del pozzo e monitorare attentamente i guadagni di volume.",
-        "mud_flow_rate_gpm_dev_std_anomala_bassa_suggerimento": "Una portata del fango significativamente inferiore alla media potrebbe indicare un blocco nel sistema di circolazione o un problema con le pompe del fango. Verificare la pressione della pompa e l'integrità della linea di scarico.",
-        "bop_ram_position_mm_dev_std_anomala_alta_suggerimento": "Una posizione dei ram del BOP significativamente al di sopra della media operativa usuale (e non completamente aperta) potrebbe indicare un movimento imprevisto o un malfunzionamento. Verificare sistema di controllo BOP e pressione idraulica. Assicurarsi che la posizione sia intenzionale e sicura.",
-        "bop_ram_position_mm_dev_std_anomala_bassa_suggerimento": "Una posizione dei ram del BOP significativamente al di sotto della media operativa usuale (e non completamente chiusa) potrebbe indicare un movimento imprevisto o un malfunzionamento. Verificare sistema di controllo BOP e pressione idraulica. Assicurarsi che la posizione sia intenzionale e sicura.",
-        "temperature_celsius_dev_std_anomala_alta_suggerimento": "Una temperatura del fluido significativamente superiore alla media potrebbe indicare una reazione esotermica nella formazione o un problema con il raffreddamento del fango. Monitorare attentamente la temperatura di ritorno del fango e la composizione chimica.",
-        "temperature_celsius_dev_std_anomala_bassa_suggerimento": "Una temperatura del fluido significativamente inferiore alla media potrebbe indicare un'iniezione imprevista di fluido freddo nella formazione o un problema con il riscaldamento del fango (se applicabile). Verificare le operazioni recenti e le condizioni del fluido iniettato.",
-        "well_pressure_psi_trend_aumento_suggerimento": "Un aumento persistente della pressione del pozzo indica un potenziale accumulo o blocco. Monitorare i dati di produzione e considerare un'analisi del fondo pozzo.",
-        "well_pressure_psi_trend_diminuzione_suggerimento": "Una diminuzione persistente della pressione del pozzo può indicare una perdita nel sistema o un esaurimento della formazione. Controllare l'integrità del pozzo e i parametri di produzione.",
-        "mud_flow_rate_gpm_trend_aumento_suggerimento": "Un aumento persistente della portata del fango potrebbe indicare un problema con la pompa o un'errata configurazione. Verificare le impostazioni e lo stato della pompa.",
-        "mud_flow_rate_gpm_trend_diminuzione_suggerimento": "Una diminuzione persistente della portata del fango può indicare un deterioramento della pompa o un problema di densità del fango. Verificare l'efficienza della pompa e la composizione del fango.",
-        "temperature_celsius_trend_aumento_suggerimento": "Un aumento persistente della temperatura potrebbe indicare un surriscaldamento di componenti o condizioni anomale nel pozzo. Ispezionare i sistemi di raffreddamento e monitorare altri parametri.",
-        "temperature_celsius_trend_diminuzione_suggerimento": "Una diminuzione persistente della temperatura, se inaspettata, potrebbe indicare problemi con i riscaldatori o un afflusso freddo. Verificare i sistemi di controllo temperatura."
+    {
+      "id": 4,
+      "domanda": "Cos'è un voltmetro?",
+      "varianti_domanda": [
+        "Spiegami voltmetro",
+        "A cosa serve il voltmetro?"
+      ],
+      "risposta": "Un voltmetro è uno strumento utilizzato per misurare la differenza di potenziale elettrico, o tensione, tra due punti in un circuito elettrico. Si collega in parallelo al componente da misurare.",
+      "level": "specific",
+      "specificity_score": 80,
+      "parent_concept": null,
+      "followup_suggestions": [
+        "Vuoi sapere come si usa un voltmetro?",
+        "Qual è la differenza tra un voltmetro e un amperometro?"
+      ],
+      "related_ids": [],
+      "category": "elettronica"
     }
+  ]
 }
