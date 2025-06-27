@@ -4,37 +4,50 @@ import re
 import pandas as pd
 from datetime import datetime, timedelta
 import random
-import math
+# import math # Non più usato direttamente, rimosso per pulizia
 import sqlite3
+from thefuzz import fuzz # Import per il calcolo della similarità fuzzy
 
 KNOWLEDGE_BASE_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'knowledge_base.json')
 DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'ccu_data.db')
 
-def load_knowledge_base(filepath: str) -> dict:
+def load_knowledge_base(filepath: str) -> list[dict]:
     """
     Carica la base di conoscenza da un file JSON.
+    La nuova struttura prevede un array di "entries" direttamente.
     """
     try:
         with open(filepath, 'r', encoding='utf-8') as f:
-            knowledge_base = json.load(f)
-        return knowledge_base
+            data = json.load(f)
+            # La base di conoscenza è ora un array di entries
+            if isinstance(data, dict) and "entries" in data and isinstance(data["entries"], list):
+                return data["entries"]
+            else:
+                print(f"Errore: Il file della base di conoscenza in {filepath} non ha la struttura attesa con un array 'entries'.")
+                return []
     except FileNotFoundError:
         print(f"Errore: Il file della base di conoscenza non è stato trovato in {filepath}")
-        return {}
+        return []
     except json.JSONDecodeError:
         print(f"Errore: Il file della base di conoscenza in {filepath} non è un JSON valido.")
-        return {}
+        return []
 
-def normalize_input_for_exact_match(text: str) -> str:
-    text = text.lower()
-    text = re.sub(r'[^\w\s-]', '', text)
-    text = re.sub(r'\s+', '_', text)
-    text = text.strip('_')
-    return text
+# Non più necessario con la nuova struttura KB, la ricerca sarà basata su keywords/fuzzy
+# def normalize_input_for_exact_match(text: str) -> str:
+#     text = text.lower()
+#     text = re.sub(r'[^\w\s-]', '', text)
+#     text = re.sub(r'\s+', '_', text)
+#     text = text.strip('_')
+#     return text
 
-def normalize_text_for_keyword_search(text: str) -> str:
+def normalize_text_for_search(text: str) -> str:
+    """
+    Normalizza il testo per la ricerca: lowercase e rimozione punteggiatura base.
+    """
     text = text.lower()
-    text = re.sub(r'[^\w\s]', '', text)
+    # Rimuove la punteggiatura eccetto apostrofi e trattini che potrebbero essere in parole
+    text = re.sub(r'[^\w\s\'-]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip() # Normalizza spazi multipli
     return text
 
 def decompose_question(original_user_input: str) -> list[str]:
@@ -111,176 +124,161 @@ def add_knowledge(category: str, key: str, value: str, filepath: str = KNOWLEDGE
 def get_categories(knowledge_base: dict) -> list[str]:
     if not knowledge_base:
         return []
-    return list(knowledge_base.keys())
+    # La vecchia funzione get_categories non è più applicabile con la nuova struttura KB
+    # if not knowledge_base:
+    #     return []
+    # return list(knowledge_base.keys())
+    # Invece, se necessario, si potrebbe estrarre le categorie uniche dalle entries:
+    if not knowledge_base_entries: # Usa il nuovo nome della variabile
+        return []
+    categories = set()
+    for entry in knowledge_base_entries:
+        if "category" in entry and isinstance(entry["category"], str):
+            # Le categorie possono essere stringhe separate da virgole
+            cats = [c.strip() for c in entry["category"].split(',')]
+            categories.update(cats)
+        elif "category" in entry and isinstance(entry["category"], list): # Supporta anche liste di categorie
+             categories.update(entry["category"])
+    return sorted(list(categories))
 
-def find_answer_for_query(query_text: str, knowledge_base: dict) -> str | None:
-    found_answer_text = None
-    normalized_for_exact = normalize_input_for_exact_match(query_text)
-    for category_content in knowledge_base.values():
-        if normalized_for_exact in category_content:
-            return category_content[normalized_for_exact]
 
-    best_match_key_strat2 = None
-    min_len_key_strat2 = float('inf')
-    for category_content in knowledge_base.values():
-        for kb_key, kb_answer in category_content.items():
-            if normalized_for_exact in kb_key:
-                if len(kb_key) < min_len_key_strat2:
-                    min_len_key_strat2 = len(kb_key)
-                    best_match_key_strat2 = kb_answer
-    if best_match_key_strat2:
-        return best_match_key_strat2
+def is_query_generic(normalized_query: str, common_generic_terms: set) -> bool:
+    """
+    Determina se una query è generica basandosi sulla lunghezza e sulla presenza di termini comuni.
+    """
+    query_words = set(normalized_query.split())
+    # Considera generica una query con poche parole O che contiene termini molto comuni
+    # e non molti altri termini specifici.
+    if len(query_words) <= 3: # Query molto corte sono spesso generiche
+        return True
+    if any(term in query_words for term in common_generic_terms) and len(query_words - common_generic_terms) <= 2:
+        # Se contiene termini generici e solo 1-2 altre parole, probabilmente è generica
+        return True
+    return False
 
-    user_keywords_text = normalize_text_for_keyword_search(query_text)
-    user_keywords_text = normalize_text_for_keyword_search(query_text)
-    if not user_keywords_text.strip(): return None
+def find_answer_for_query(user_input: str, knowledge_base_entries: list[dict]) -> str | None:
+    """
+    Trova la risposta migliore per una data query utente utilizzando la nuova struttura della knowledge base.
+    Considera 'domanda', 'varianti_domanda', 'level', e 'specificity_score'.
+    """
+    if not knowledge_base_entries:
+        return None
 
-    original_user_words = user_keywords_text.split()
-    user_keywords_set = set(original_user_words)
-    if not user_keywords_set: return None
+    normalized_user_input = normalize_text_for_search(user_input)
+    if not normalized_user_input.strip():
+        return None # Input utente vuoto o solo spazi
 
-    # Definisci pesi per parole chiave specifiche (termini tecnici, nomi propri, ecc.)
-    # Questi potrebbero essere espansi o caricati da una configurazione esterna in futuro.
-    # Definisci pesi per parole chiave specifiche.
-    # Le chiavi DEVONO essere singole parole normalizzate (lowercase, no punteggiatura).
-    specific_keyword_weights = {
-        # Termini tecnici PASCAL/O&G
-        "bop": 3.0, "blowout": 2.5, "preventer": 2.5, # "blowout_preventer" diventa "blowout" e "preventer"
-        "pressione": 2.5, "pozzo": 2.5, "fango": 2.5, "portata": 2.5, "sensore": 2.5,
-        "anomalia": 2.5, "trend": 2.5, "api": 2.0, "53": 2.0, # "api_53"
-        "kick": 3.0, "lost": 2.0, "circulation": 2.0, # "lost_circulation"
-        "well": 2.0, "control": 2.0, # "well_control"
-        "drilling": 2.0, "offshore": 2.0, "sottomarino": 2.0, "formazione": 2.0,
-        "fluido": 1.5, "perforazione": 1.5, # "fluido_di_perforazione"
-        "ccu": 2.0, "simula": 1.5, "dati": 1.5, "storici": 1.5, "analisi": 1.5, "report": 1.5,
-        "salute": 1.5, "stato": 1.5, "sistema": 1.5, "complessivo": 1.5,
-        "warning": 2.0, "alarm": 3.0, "critico": 3.0, "stabile": 2.0, "attenzione": 2.0,
-        # Termini Ingegneria/Elettronica
-        "ohm": 2.5,  # Ridotto da 3
-        "legge": 1.5, # "legge_di_ohm" si basa su "legge" e "ohm"
-        "transistore": 2.5,  # Ridotto da 3
-        "corrente": 2.0, "voltmetro": 2.0, # Ridotto da 2.5 o 3
-        "tensione": 2.0, "resistenza": 2.0, "amplificare": 2.0, "commutare": 2.0,
-        "semiconduttore": 2.0, "alternata": 2.0, "continua": 2.0,
-        # Termini Cultura Generale (esempi)
-        "gioconda": 2.0, "leonardo": 2.0, "vinci": 2.0, # "leonardo_da_vinci"
-        "einstein": 2.0, "relativita": 3.0, "fotosintesi": 2.0, "dna": 2.0,
-        "divina": 1.5, "commedia": 1.5, "dante": 2.0, "alighieri": 2.0, # "divina_commedia", "dante_alighieri"
-        "australia": 1.0, "capitale": 1.5,
-        "seconda": 1.5, "guerra": 1.5, "mondiale": 1.5, # "seconda_guerra_mondiale"
-        "notte": 1.5, "stellata": 1.5, "van": 1.5, "gogh": 2.0, # "notte_stellata", "van_gogh"
-        "pianeta": 1.0, "giove": 2.0, "solare": 1.5, # "sistema_solare"
-        "teorema": 2.0, "pitagora": 2.5, # "teorema_di_pitagora"
-        # Termini per PASCAL stesso
-        "pascal": 3.0, "capacita": 1.5, "aiuto": 1.0,
-        # Termini generici chiave (per definizioni, ecc.)
-        "energia": 2.0,  # Peso aumentato per renderla competitiva come termine di ricerca standalone
-        "definizione": 1.5, "concetto": 1.5, "generale": 1.0, # Pesi per favorire chiavi definizionali
-        # Parole comuni/stop-words con peso molto basso o nullo (per evitare che influenzino troppo lo score)
-        "cosa": 0.01, "come": 0.01, "quando": 0.01, "perche": 0.01, "chi": 0.01,
-        "spiega": 0.01, "dimmi": 0.01, "sai": 0.01, "e": 0, "di": 0, "la": 0, "il": 0,
-        "un": 0, "una": 0, "del": 0, "su": 0.01, "sono":0.01, "le":0, "mie":0.01, "tue":0.01
-    }
+    best_match_entry = None
+    highest_score = -1
 
-    # Pesi per la posizione (le prime parole sono più importanti)
-    POSITION_WEIGHT_FACTOR = 0.2
-    MAX_POSITION_BONUS_WORDS = 3
+    # Termini comuni che indicano una domanda generica (da espandere se necessario)
+    COMMON_GENERIC_TERMS = {"cosa", "cos'è", "spiega", "spiegami", "dimmi", "che", "qual è", "come funziona", "definizione"}
+    query_is_potentially_generic = is_query_generic(normalized_user_input, COMMON_GENERIC_TERMS)
 
-    best_overall_score = 0.0
-    best_answer_strat3 = None
+    # Soglia minima di similarità testuale per considerare un match valido
+    MIN_FUZZY_SCORE_THRESHOLD = 75 # Abbassato per permettere più match iniziali, poi filtrati da specificità
+    HIGH_FUZZY_SCORE_FOR_SPECIFIC_OVERRIDE = 90 # Se il match testuale è molto alto, la specificità alta può vincere
 
-    # Commento per DEBUG: Stampa le keyword utente per analisi
-    # print(f"DEBUG: Query: '{query_text}', User Keywords: {user_keywords_set}")
+    for entry in knowledge_base_entries:
+        current_text_match_score = 0
 
-    # Itera su ogni categoria e voce della base di conoscenza
-    for category_name, category_content in knowledge_base.items():
-        for kb_key, kb_answer in category_content.items():
-            kb_key_words_set = set(kb_key.split('_')) # Estrai e normalizza le parole chiave dalla chiave KB
-            common_keywords = user_keywords_set.intersection(kb_key_words_set) # Trova le parole chiave comuni
+        # 1. Calcolo del punteggio di similarità testuale (Fuzzy Matching)
+        # Controlla la domanda principale
+        q_text = normalize_text_for_search(entry.get("domanda", ""))
+        score_domanda = fuzz.WRatio(normalized_user_input, q_text) # WRatio gestisce bene differenze di lunghezza
+        current_text_match_score = score_domanda
 
-            # Se non ci sono parole chiave comuni, questa voce KB non è rilevante per la query
-            if not common_keywords:
-                continue
+        # Controlla le varianti della domanda e prendi il punteggio massimo
+        for variante in entry.get("varianti_domanda", []):
+            v_text = normalize_text_for_search(variante)
+            score_variante = fuzz.WRatio(normalized_user_input, v_text)
+            if score_variante > current_text_match_score:
+                current_text_match_score = score_variante
 
-            current_key_score = 0.0 # Inizializza il punteggio per la voce KB corrente
+        # Se il punteggio di similarità testuale è troppo basso, scarta questa entry
+        if current_text_match_score < MIN_FUZZY_SCORE_THRESHOLD:
+            continue
 
-            # --- Calcolo del Punteggio ---
-            # Il punteggio è calcolato considerando diversi fattori per determinare la rilevanza
-            # di una voce della KB rispetto alla domanda dell'utente.
+        # 2. Calcolo del punteggio finale considerando specificità e level
+        # Inizializza il punteggio finale con il punteggio testuale
+        final_entry_score = float(current_text_match_score)
 
-            # 1. Punteggio base dalle parole chiave comuni:
-            #    Ogni parola comune contribuisce con un punteggio base (default 1) più il suo peso specifico
-            #    definito in `specific_keyword_weights`. Questo dà più importanza a termini tecnici o rilevanti.
-            #    Le parole chiave sono già normalizzate (lowercase, no punteggiatura) sia dall'input utente
-            #    che dalle chiavi KB.
-            base_common_score = 0
-            for kw in common_keywords:
-                base_common_score += 1 + specific_keyword_weights.get(kw, 0)
-            current_key_score += base_common_score
+        specificity_score = entry.get("specificity_score", 50) # Default a media specificità
+        level = entry.get("level", "general") # Default a general
 
-            # 2. Bonus per la posizione delle parole chiave comuni nella domanda dell'utente:
-            #    Le parole chiave che appaiono prima nella domanda originale dell'utente ricevono un bonus.
-            #    Questo bonus è anche modulato dal peso specifico della parola chiave stessa,
-            #    amplificando l'importanza dei termini rilevanti all'inizio della query.
-            for i, user_word_original_case in enumerate(original_user_words[:MAX_POSITION_BONUS_WORDS]):
-                normalized_user_word_for_check = normalize_text_for_keyword_search(user_word_original_case)
-                if normalized_user_word_for_check in common_keywords:
-                    # Bonus = (Fattore Decadimento Posizione basato su MAX_POSITION_BONUS_WORDS) *
-                    #         POSITION_WEIGHT_FACTOR * (1 + Peso Specifico Parola)
-                    current_key_score += (MAX_POSITION_BONUS_WORDS - i) * POSITION_WEIGHT_FACTOR * \
-                                         (1 + specific_keyword_weights.get(normalized_user_word_for_check, 0))
+        # Logica di priorità per specificità e level:
+        if query_is_potentially_generic:
+            # Per domande generiche, favorisci risposte 'general' e con basso `specificity_score`
+            if level == "general":
+                final_entry_score += 20 # Bonus per level general su query generica
+            # Penalizza o favorisci in base a `specificity_score` (inversamente)
+            # Un `specificity_score` più basso è migliore per query generiche.
+            # Normalizziamo il punteggio di specificità (0-100) in un modificatore.
+            # Ad esempio, un punteggio di 10 (molto generale) aggiunge di più di un punteggio di 80.
+            final_entry_score += (100 - specificity_score) * 0.2 # Modificatore basato su quanto è generale
+        else: # Query probabilmente specifica
+            # Per domande specifiche, favorisci risposte con alto `specificity_score`
+            # a meno che il level sia 'general' e il match testuale non sia altissimo.
+            if level == "specific":
+                 final_entry_score += 15 # Bonus per level specific su query specifica
+            final_entry_score += specificity_score * 0.3 # Modificatore basato su quanto è specifica
 
-            # 3. Bonus per query generiche che matchano voci KB definizionali:
-            #    Se la domanda dell'utente è breve e sembra chiedere una definizione
-            #    (es. "cos'è X?", "spiega Y", "definizione di Z"), e la chiave KB indica che
-            #    è una voce definizionale/generale (contiene parole come "definizione", "concetto", "generale"),
-            #    allora aumenta il punteggio di questa voce KB.
-            #    Questo aiuta a rispondere a domande vaghe con la risposta generale più appropriata.
-            #    Si considerano "significative" le parole chiave utente che non sono stop-words implicite
-            #    (definite da pesi molto bassi in `specific_keyword_weights`).
-            significant_user_keywords = {kw for kw in user_keywords_set if specific_keyword_weights.get(kw, 0) > 0.01}
-            query_is_short_and_general = len(significant_user_keywords) <= 2 and \
-                                         any(kw in user_keywords_set for kw in ["cosa", "cos_e", "significa", "definizione", "spiega", "dimmi", "concetto", "generale"])
-            key_is_definitional = any(dkw in kb_key_words_set for dkw in ["definizione", "concetto", "generale", "cosa_e", "cose"]) # Aggiunto "cose" (da cos'è)
+            # Se una risposta 'general' ha un match testuale molto alto, può comunque essere una buona candidata
+            if level == "general" and current_text_match_score >= HIGH_FUZZY_SCORE_FOR_SPECIFIC_OVERRIDE:
+                final_entry_score += 10 # Piccolo bonus per risposte generali con ottimo match testuale anche per query specifiche
+            elif level == "general": # Penalizza risposte generali per query specifiche se il match non è eccellente
+                final_entry_score -= (specificity_score * 0.1)
 
-            if query_is_short_and_general and key_is_definitional:
-                current_key_score *= 1.4 # Aumentato leggermente il moltiplicatore per favorire definizioni
 
-            # 4. Bonus per la completezza del match tra le parole chiave della domanda e quelle della chiave KB:
-            #    Vengono applicati moltiplicatori per dare una forte preferenza a match più completi,
-            #    indicando una maggiore specificità e pertinenza.
-            if common_keywords == user_keywords_set == kb_key_words_set and len(user_keywords_set) > 0:
-                 # Match perfetto: tutte le parole utente e tutte le parole chiave KB corrispondono.
-                 current_key_score *= 2.0
-            elif common_keywords == user_keywords_set and len(user_keywords_set) > 0:
-                # Tutte le parole chiave dell'utente sono presenti nella chiave KB (la chiave KB potrebbe essere più ampia).
-                current_key_score *= 1.6
-            elif common_keywords == kb_key_words_set and len(kb_key_words_set) > 0:
-                # Tutte le parole chiave della KB sono presenti nella domanda dell'utente (la domanda potrebbe essere più ampia).
-                current_key_score *= 1.3
+        # Ulteriore bonus se la domanda principale (non varianti) ha un match molto forte,
+        # indica che la entry è stata pensata primariamente per quel tipo di domanda.
+        if score_domanda > 90 and score_domanda >= current_text_match_score: # score_domanda è il match con entry["domanda"]
+            final_entry_score += 5
 
-            # Commento per DEBUG: Stampa il punteggio calcolato per ogni chiave KB candidata
-            # print(f"DEBUG: KB Key '{kb_key}' (Cat: {category_name}), Common: {common_keywords}, Score: {current_key_score:.2f}")
+        # DEBUG: print(f"Entry ID {entry.get('id')}: Text Score: {current_text_match_score}, Specificity: {specificity_score}, Level: {level}, Query Generic: {query_is_potentially_generic}, Final Score: {final_entry_score}")
 
-            # Aggiorna il miglior match trovato finora
-            if current_key_score > best_overall_score:
-                best_overall_score = current_key_score
-                best_answer_strat3 = kb_answer
-            elif current_key_score == best_overall_score and best_answer_strat3 is not None:
-                # Tie-breaking: preferisci la chiave KB più corta se i punteggi sono identici,
-                # assumendo che una chiave più corta sia più mirata.
-                # O una risposta più corta. Per ora, manteniamo la prima trovata.
-                pass
+        if final_entry_score > highest_score:
+            highest_score = final_entry_score
+            best_match_entry = entry
+        elif final_entry_score == highest_score and best_match_entry is not None:
+            # Tie-breaking:
+            # 1. Preferisci specificità più alta se la query non è generica
+            # 2. Preferisci specificità più bassa (più generale) se la query è generica
+            # 3. Preferisci match testuale più alto se gli altri fattori sono uguali
 
-    # if best_answer_strat3:
-    #    print(f"DEBUG: Final Best Match for '{query_text}': Score {best_overall_score:.2f}, Answer: '{best_answer_strat3[:60]}...'")
-    # else:
-    #    print(f"DEBUG: No keyword match for '{query_text}'")
+            current_specificity = entry.get("specificity_score", 50)
+            best_specificity = best_match_entry.get("specificity_score", 50)
 
-    if best_overall_score > 0: return best_answer_strat3
-    return None
+            prefer_current = False
+            if query_is_potentially_generic:
+                if current_specificity < best_specificity: # Più generale è meglio
+                    prefer_current = True
+                elif current_specificity == best_specificity and current_text_match_score > fuzz.WRatio(normalized_user_input, normalize_text_for_search(best_match_entry.get("domanda",""))):
+                     prefer_current = True # Se stessa generalità, preferisci miglior match testuale
+            else: # Query specifica
+                if current_specificity > best_specificity: # Più specifico è meglio
+                    prefer_current = True
+                elif current_specificity == best_specificity and current_text_match_score > fuzz.WRatio(normalized_user_input, normalize_text_for_search(best_match_entry.get("domanda",""))):
+                    prefer_current = True # Se stessa specificità, preferisci miglior match testuale
 
-# --- Funzioni relative a CCU e simulazione (invariate per questo task) ---
+            if prefer_current:
+                 best_match_entry = entry
+
+
+    if best_match_entry:
+        # print(f"DEBUG: Best match for '{user_input}': Entry ID {best_match_entry.get('id')}, Score: {highest_score}, Answer: {best_match_entry.get('risposta')[:60]}...")
+        response_text = best_match_entry.get("risposta", "Risposta non trovata per questa voce.")
+        followups = best_match_entry.get("followup_suggestions", [])
+        if followups:
+            response_text += "\n\nPotresti anche chiedermi:\n" + "\n".join([f"- {sugg}" for sugg in followups])
+        return response_text
+
+    # Messaggio "Non so" migliorato
+    # print(f"DEBUG: No suitable match found for '{user_input}' with new logic. Highest score: {highest_score}")
+    return "Mi dispiace, non ho trovato una risposta precisa nella mia attuale base di conoscenza. Prova a riformulare la tua domanda o a chiedere qualcosa di più specifico."
+
+
+# --- Funzioni relative a CCU e simulazione (principalmente invariate per questo task, eccetto chiamate a KB) ---
 def simulate_ccu_data_acquisition(num_records: int) -> pd.DataFrame:
     data = []
     current_time = datetime.now()
@@ -386,17 +384,26 @@ def generate_anomaly_report(anomalies_details: list[dict], knowledge_base: dict)
     for detail in anomalies_details:
         report_parts.append(f"  - {detail['message']}")
     suggestions_found = []
-    problem_solving_kb = knowledge_base.get("problem_solving_suggestions", {})
-    unique_anomaly_types = sorted(list(set(detail['type'] for detail in anomalies_details)))
-    for anomaly_type in unique_anomaly_types:
-        suggestion_key = f"{anomaly_type}_suggerimento"
-        suggestion = problem_solving_kb.get(suggestion_key)
-        if suggestion:
-            display_anomaly_type = anomaly_type.replace('_', ' ').capitalize()
-            suggestions_found.append(f"  - Riguardo '{display_anomaly_type}': {suggestion}")
-    if suggestions_found:
-        report_parts.append("\n\nSuggerimenti per il Problem Solving:")
-        report_parts.extend(suggestions_found)
+    # Modificato per riflettere che knowledge_base è ora una lista di entries.
+    # La logica specifica per "problem_solving_suggestions" dovrebbe essere rivista
+    # se queste informazioni sono ora integrate nelle entries standard.
+    # Per ora, questa parte potrebbe non funzionare come prima se "problem_solving_suggestions"
+    # non è una entry dedicata o una categoria specifica.
+    # Assumiamo per ora che non ci siano suggerimenti specifici di problem solving dalla KB in questo formato.
+    # TODO: Rivedere la logica di recupero dei suggerimenti per anomalie se necessario.
+    # problem_solving_kb = knowledge_base.get("problem_solving_suggestions", {}) # Vecchia logica
+    # unique_anomaly_types = sorted(list(set(detail['type'] for detail in anomalies_details)))
+    # for anomaly_type in unique_anomaly_types:
+    #     suggestion_key = f"{anomaly_type}_suggerimento"
+    #     # Questa ricerca non funzionerà più direttamente, serve un modo per cercare entries rilevanti
+    #     # suggestion = problem_solving_kb.get(suggestion_key)
+    #     suggestion = None # Placeholder
+    #     if suggestion:
+    #         display_anomaly_type = anomaly_type.replace('_', ' ').capitalize()
+    #         suggestions_found.append(f"  - Riguardo '{display_anomaly_type}': {suggestion}")
+    # if suggestions_found:
+    #     report_parts.append("\n\nSuggerimenti per il Problem Solving (da KB):")
+    #     report_parts.extend(suggestions_found)
     report_parts.append("\n\nSi consiglia verifica approfondita dei parametri segnalati.")
     return "\n".join(report_parts)
 
@@ -480,8 +487,11 @@ def start_pascal_cli():
     knowledge_base = load_knowledge_base(KNOWLEDGE_BASE_PATH)
     if not knowledge_base:
         print("Avvio di P.A.S.C.A.L. non riuscito a causa di problemi con la base di conoscenza principale.")
-        # Considerare se uscire o continuare con funzionalità limitate
-        # return
+        # Considerare se uscire o continuare con funzionalità limitate.
+        # Per ora, se la KB non si carica, PASCAL avrà funzionalità molto limitate.
+        # Le funzioni che dipendono dalla KB (come find_answer_for_query) dovrebbero gestire una KB vuota.
+        print("Avvio di P.A.S.C.A.L. con funzionalità limitate a causa di problemi con la base di conoscenza principale.")
+
     print("Ciao! Sono P.A.S.C.A.L. il tuo assistente AI. Digita 'aiuto' per le mie capacità o 'esci' per terminare.")
     while True:
         user_input_original = input("> ").strip()
@@ -496,28 +506,22 @@ def start_pascal_cli():
             print("  aggiungi conoscenza - Permette di inserire nuove informazioni nella base di conoscenza.")
             print("  simula dati ccu - Simula l'acquisizione e l'analisi di dati CCU.")
             print("  mostra dati storici ccu - Carica e analizza i dati CCU storici.")
-            print("Puoi anche farmi domande dirette, ad esempio 'chi ha dipinto la gioconda'.\n")
+            print("Puoi anche farmi domande dirette, ad esempio 'Cosa sai sull'energia?'.\n") # Esempio aggiornato
             continue
 
-        user_input_lower = user_input_original.lower()
+        user_input_lower = user_input_original.lower() # Mantengo per comandi specifici
 
-        if user_input_lower == 'aggiungi conoscenza':
-            print("\n--- Aggiunta Nuova Conoscenza ---")
-            if not knowledge_base: print("Attenzione: la base di conoscenza sembra essere vuota o non caricata.")
-            print(f"Categorie esistenti: {get_categories(knowledge_base)}")
-            category_input = input("Inserisci la categoria: ").strip()
-            if not category_input: print("Categoria non valida. Annullamento."); continue
-            key_input = input("Inserisci la domanda o la chiave: ").strip()
-            if not key_input: print("Chiave/domanda non valida. Annullamento."); continue
-            value_input = input("Inserisci la risposta o il valore: ").strip()
-            if not value_input: print("Valore/risposta non valido. Annullamento."); continue
-            if add_knowledge(category_input, key_input, value_input):
-                print("Conoscenza aggiunta con successo!")
-                knowledge_base = load_knowledge_base(KNOWLEDGE_BASE_PATH)
-                if not knowledge_base: print("Attenzione: problemi durante il ricaricamento della KB aggiornata.")
-            else: print("Errore durante l'aggiunta della conoscenza.")
-            print("-----------------------------------\n")
-            continue
+        # La funzione 'aggiungi conoscenza' è stata rimossa perché la nuova struttura KB è più complessa
+        # e richiede la creazione di oggetti JSON strutturati, non semplici coppie chiave-valore.
+        # L'aggiunta di nuove voci dovrebbe avvenire tramite modifica diretta del file JSON
+        # o tramite uno strumento dedicato (non parte di questo task).
+        # if user_input_lower == 'aggiungi conoscenza':
+        #     print("\n--- Aggiunta Nuova Conoscenza (Funzionalità Disabilitata) ---")
+        #     print("L'aggiunta di conoscenza tramite interfaccia è temporaneamente disabilitata.")
+        #     print("Modificare direttamente il file 'data/knowledge_base.json' per aggiungere nuove voci.")
+        #     # ... (codice precedente commentato o rimosso) ...
+        #     print("-----------------------------------\n")
+        #     continue
 
         if user_input_lower == 'simula dati ccu':
             print("\n--- Simulazione Dati CCU ---")

@@ -1,1 +1,3 @@
 pandas
+thefuzz
+python-Levenshtein
