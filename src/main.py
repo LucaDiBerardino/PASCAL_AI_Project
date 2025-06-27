@@ -144,95 +144,102 @@ def find_answer_for_query(query_text: str, knowledge_base: dict) -> str | None:
     # Normalizzare le chiavi qui per coerenza con il lookup.
     specific_keyword_weights = {
         normalize_input_for_exact_match(k): v for k, v in {
-            "bop": 3, "blowout preventer": 3, "pressione": 2, "pozzo": 2, "fango": 2,
-            "portata": 2, "sensore": 2, "anomalia": 2, "trend": 2, "ohm": 3, "transistore": 3,
-            "corrente": 2, "voltmetro": 2, "api 53": 3, "gioconda": 2, "leonardo da vinci": 2,
-            "einstein": 2, "relativita": 3, "fotosintesi": 2, "dna": 2,
-            "warning": 2, "alarm": 3, "critico": 3, "stabile": 2, "attenzione": 2,
-            "simula": 1, "dati": 1, "ccu": 2, "storici": 1, "analisi": 1, "report": 1,
-            "salute": 1, "stato": 1, "sistema": 1, "complessivo": 1, "capacita": 1,
+            # Termini tecnici PASCAL/O&G
+            "bop": 3, "blowout preventer": 3, "pressione": 2.5, "pozzo": 2.5, "fango": 2.5,
+            "portata": 2.5, "sensore": 2.5, "anomalia": 2.5, "trend": 2.5, "api 53": 3,
             "kick": 3, "lost circulation": 3, "well control": 3, "drilling": 2, "offshore": 2,
             "sottomarino": 2, "formazione": 2, "fluido di perforazione": 2,
-            "legge di ohm": 3, "tensione": 2, "resistenza": 2, "amplificare": 2, "commutare": 2,
+            "ccu": 2, "simula": 1.5, "dati": 1.5, "storici": 1.5, "analisi": 1.5, "report": 1.5,
+            "salute": 1.5, "stato": 1.5, "sistema": 1.5, "complessivo": 1.5,
+            "warning": 2, "alarm": 3, "critico": 3, "stabile": 2, "attenzione": 2,
+            # Termini Ingegneria/Elettronica
+            "ohm": 3, "legge di ohm": 3.5, "transistore": 3, "corrente": 2, "voltmetro": 2,
+            "tensione": 2, "resistenza": 2, "amplificare": 2, "commutare": 2,
             "semiconduttore": 2, "alternata": 2, "continua": 2,
-            "divina commedia": 2, "dante alighieri": 2, "australia": 1, "capitale": 1,
-            "seconda guerra mondiale": 2, "notte stellata": 2, "van gogh": 2,
-            "pianeta": 1, "giove": 2, "sistema solare": 1, "teorema di pitagora": 2
+            # Termini Cultura Generale (alcuni esempi, potrebbero essere molti di più)
+            "gioconda": 2, "leonardo da vinci": 2.5, "einstein": 2, "relativita": 3,
+            "fotosintesi": 2, "dna": 2, "divina commedia": 2, "dante alighieri": 2.5,
+            "australia": 1, "capitale": 1.5, "seconda guerra mondiale": 2.5,
+            "notte stellata": 2, "van gogh": 2.5, "pianeta": 1, "giove": 2, "sistema solare": 1.5,
+            "teorema di pitagora": 2.5,
+            # Termini per PASCAL stesso
+            "pascal": 3, "capacita": 1.5, "aiuto": 1,
+            # Termini generici con peso ridotto o neutro se non specificati diversamente
+            "energia": 1.0, # Dare un peso base, ma non troppo alto per evitare override
+            "definizione": 1.0, "concetto": 1.0, "generale": 0.5,
+            "cosa": 0.1, "come": 0.1, "quando": 0.1, "perche": 0.1, "chi": 0.1, "spiega": 0.1, "dimmi": 0.1,
+            "e": 0, "di": 0, "la": 0, "il": 0, "un": 0, "una": 0, "del": 0, "su":0.1, "sai":0.1
         }.items()
     }
 
     # Pesi per la posizione (le prime parole sono più importanti)
-    POSITION_WEIGHT_FACTOR = 0.2 # Aumentato leggermente il peso per la posizione
+    POSITION_WEIGHT_FACTOR = 0.2
     MAX_POSITION_BONUS_WORDS = 3
 
-    best_overall_score = 0.0 # Cambiato a float per accogliere pesi decimali
+    best_overall_score = 0.0
     best_answer_strat3 = None
 
-    # Debug: Stampa le keyword utente
-    # print(f"DEBUG: User keywords for query '{query_text}': {user_keywords_set}")
+    # print(f"DEBUG: Query: '{query_text}', User Keywords: {user_keywords_set}")
 
     for category_name, category_content in knowledge_base.items():
         for kb_key, kb_answer in category_content.items():
             kb_key_words_set = set(kb_key.split('_'))
-
             common_keywords = user_keywords_set.intersection(kb_key_words_set)
 
             if not common_keywords:
                 continue
 
-            # Inizializza il punteggio per questa chiave KB
             current_key_score = 0.0
 
-            # 1. Punteggio base: numero di parole chiave comuni
-            current_key_score += len(common_keywords)
+            # 1. Punteggio base: Numero di parole chiave comuni.
+            #    Ogni parola comune contribuisce con un punteggio base (es. 1) più il suo peso specifico.
+            base_common_score = 0
+            for kw in common_keywords:
+                base_common_score += 1 + specific_keyword_weights.get(kw, 0) # kw è già normalizzata perché viene da user_keywords_set (che deriva da testo normalizzato) o kb_key_words_set (che sono già normali)
+            current_key_score += base_common_score
 
-            # 2. Bonus per specificità delle parole chiave comuni
-            #    Si applica sia alle parole chiave della domanda che a quelle della chiave KB
-            #    per dare peso a match su termini importanti da entrambe le parti.
-            all_relevant_keywords_for_weighting = common_keywords.union(kb_key_words_set) # Considera anche le parole chiave uniche della KB per il loro peso intrinseco
-
-            for kw_to_weight in all_relevant_keywords_for_weighting:
-                # Le chiavi in specific_keyword_weights sono già normalizzate
-                weight = specific_keyword_weights.get(kw_to_weight, 0) # Usa kw_to_weight direttamente se le chiavi in specific_keyword_weights sono come quelle in kb_key_words_set
-                if kw_to_weight in common_keywords: # Applica peso solo se la parola è in comune
-                     current_key_score += weight
-                # elif kw_to_weight in kb_key_words_set: # Alternativa: dare un peso minore se la parola chiave è solo nella KB ma è importante
-                #    current_key_score += weight * 0.5 # Esempio di peso ridotto
-
-
-            # 3. Bonus per posizione delle parole chiave comuni nella domanda utente originale
-            #    Questo aiuta a dare priorità alle chiavi KB che matchano l'inizio della domanda.
+            # 2. Bonus per posizione delle parole chiave comuni nella domanda utente originale.
+            #    Dà priorità a match che rispettano l'ordine iniziale delle parole dell'utente.
             for i, user_word_original_case in enumerate(original_user_words[:MAX_POSITION_BONUS_WORDS]):
-                normalized_user_word_for_check = normalize_text_for_keyword_search(user_word_original_case) # usa la stessa normalizzazione delle keyword
-                if normalized_user_word_for_check in common_keywords: # Verifica se la parola normalizzata è tra quelle comuni
-                    current_key_score += (MAX_POSITION_BONUS_WORDS - i) * POSITION_WEIGHT_FACTOR
+                normalized_user_word_for_check = normalize_text_for_keyword_search(user_word_original_case)
+                if normalized_user_word_for_check in common_keywords:
+                    # Il bonus di posizione si aggiunge al punteggio già accumulato dalle parole.
+                    # Si potrebbe anche pensare a un fattore moltiplicativo se la parola pesata è all'inizio.
+                    current_key_score += (MAX_POSITION_BONUS_WORDS - i) * POSITION_WEIGHT_FACTOR * (1 + specific_keyword_weights.get(normalized_user_word_for_check, 0))
 
-            # 4. Bonus per completezza del match (rapporto tra parole comuni e totali)
-            #    Rapporto di Jaccard modificato o simili.
-            #    Bonus se tutte le parole chiave dell'utente sono nel set di parole chiave della KB
-            if common_keywords == user_keywords_set:
-                current_key_score *= 1.5 # Moltiplicatore per match completo delle parole utente
 
-            # Bonus se tutte le parole chiave della KB sono nel set di parole chiave dell'utente
+            # 3. Bonus/Malus per specificità e generalità della query e della chiave KB
+            #    Se la query è molto breve (es. 1-2 parole) e generica, e la chiave KB è molto specifica e lunga,
+            #    potrebbe essere un match casuale.
+            #    Se la chiave KB contiene "definizione", "generale", "concetto" e la query è breve, potrebbe essere un buon match.
+            query_is_short_and_general = len(user_keywords_set) <= 2 and any(kw in user_keywords_set for kw in ["cosa", "cos_e", "significa", "definizione"])
+            key_is_definitional = any(dkw in kb_key_words_set for dkw in ["definizione", "concetto", "generale"])
+
+            if query_is_short_and_general and key_is_definitional:
+                current_key_score *= 1.3 # Favorisce definizioni generali per query generiche
+
+            # 4. Bonus per completezza del match.
+            #    Si applicano moltiplicatori per dare forte preferenza a match più completi.
+            if common_keywords == user_keywords_set == kb_key_words_set: # Match perfetto di tutti i termini
+                 current_key_score *= 2.0
+            elif common_keywords == user_keywords_set:
+                current_key_score *= 1.6 # Tutte le parole utente sono nella chiave KB (la chiave KB potrebbe essere più ampia)
             elif common_keywords == kb_key_words_set:
-                current_key_score *= 1.2 # Moltiplicatore se la domanda copre interamente la chiave KB
+                current_key_score *= 1.3 # Tutte le parole della chiave KB sono nella domanda utente (la domanda utente potrebbe essere più ampia)
 
-            # Debug: Stampa punteggio per chiave
-            # if current_key_score > 0:
-            #    print(f"DEBUG: KB Key '{kb_key}' in Cat '{category_name}'. Common: {common_keywords}. Score: {current_key_score:.2f}")
+            # print(f"DEBUG: KB Key '{kb_key}' (Cat: {category_name}), Common: {common_keywords}, Score: {current_key_score:.2f}")
 
             if current_key_score > best_overall_score:
                 best_overall_score = current_key_score
                 best_answer_strat3 = kb_answer
-            # Gestione dei pareggi (tie-breaking):
-            # Se current_key_score == best_overall_score, si potrebbe preferire:
-            # - la risposta associata a una chiave KB più corta (più specifica)
-            # - la risposta più corta/lunga
-            # Per ora, si tiene la prima trovata con il punteggio massimo.
+            elif current_key_score == best_overall_score and best_answer_strat3 is not None:
+                # Tie-breaking: preferisci la chiave KB più corta se i punteggi sono identici,
+                # assumendo che una chiave più corta sia più mirata.
+                # O una risposta più corta. Per ora, manteniamo la prima trovata.
+                pass
 
-    # Debug: Stampa il miglior match
     # if best_answer_strat3:
-    #    print(f"DEBUG: Best match for '{query_text}' is from key associated with answer: '{best_answer_strat3[:50]}...' with score {best_overall_score:.2f}")
+    #    print(f"DEBUG: Final Best Match for '{query_text}': Score {best_overall_score:.2f}, Answer: '{best_answer_strat3[:60]}...'")
     # else:
     #    print(f"DEBUG: No keyword match for '{query_text}'")
 
