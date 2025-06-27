@@ -132,24 +132,114 @@ def find_answer_for_query(query_text: str, knowledge_base: dict) -> str | None:
         return best_match_key_strat2
 
     user_keywords_text = normalize_text_for_keyword_search(query_text)
+    user_keywords_text = normalize_text_for_keyword_search(query_text)
     if not user_keywords_text.strip(): return None
-    user_keywords = set(user_keywords_text.split())
-    if not user_keywords: return None
-    best_match_score = 0
+
+    original_user_words = user_keywords_text.split()
+    user_keywords_set = set(original_user_words)
+    if not user_keywords_set: return None
+
+    # Definisci pesi per parole chiave specifiche (termini tecnici, nomi propri, ecc.)
+    # Questi potrebbero essere espansi o caricati da una configurazione esterna in futuro.
+    # Normalizzare le chiavi qui per coerenza con il lookup.
+    specific_keyword_weights = {
+        normalize_input_for_exact_match(k): v for k, v in {
+            "bop": 3, "blowout preventer": 3, "pressione": 2, "pozzo": 2, "fango": 2,
+            "portata": 2, "sensore": 2, "anomalia": 2, "trend": 2, "ohm": 3, "transistore": 3,
+            "corrente": 2, "voltmetro": 2, "api 53": 3, "gioconda": 2, "leonardo da vinci": 2,
+            "einstein": 2, "relativita": 3, "fotosintesi": 2, "dna": 2,
+            "warning": 2, "alarm": 3, "critico": 3, "stabile": 2, "attenzione": 2,
+            "simula": 1, "dati": 1, "ccu": 2, "storici": 1, "analisi": 1, "report": 1,
+            "salute": 1, "stato": 1, "sistema": 1, "complessivo": 1, "capacita": 1,
+            "kick": 3, "lost circulation": 3, "well control": 3, "drilling": 2, "offshore": 2,
+            "sottomarino": 2, "formazione": 2, "fluido di perforazione": 2,
+            "legge di ohm": 3, "tensione": 2, "resistenza": 2, "amplificare": 2, "commutare": 2,
+            "semiconduttore": 2, "alternata": 2, "continua": 2,
+            "divina commedia": 2, "dante alighieri": 2, "australia": 1, "capitale": 1,
+            "seconda guerra mondiale": 2, "notte stellata": 2, "van gogh": 2,
+            "pianeta": 1, "giove": 2, "sistema solare": 1, "teorema di pitagora": 2
+        }.items()
+    }
+
+    # Pesi per la posizione (le prime parole sono più importanti)
+    POSITION_WEIGHT_FACTOR = 0.2 # Aumentato leggermente il peso per la posizione
+    MAX_POSITION_BONUS_WORDS = 3
+
+    best_overall_score = 0.0 # Cambiato a float per accogliere pesi decimali
     best_answer_strat3 = None
-    for category_content in knowledge_base.values():
+
+    # Debug: Stampa le keyword utente
+    # print(f"DEBUG: User keywords for query '{query_text}': {user_keywords_set}")
+
+    for category_name, category_content in knowledge_base.items():
         for kb_key, kb_answer in category_content.items():
-            kb_key_keywords = set(kb_key.split('_'))
-            common_keywords = user_keywords.intersection(kb_key_keywords)
-            score = len(common_keywords)
-            if common_keywords == user_keywords and score > 0: score += len(user_keywords)
-            elif common_keywords == kb_key_keywords and score > 0: score += len(kb_key_keywords)
-            if score > best_match_score:
-                best_match_score = score
+            kb_key_words_set = set(kb_key.split('_'))
+
+            common_keywords = user_keywords_set.intersection(kb_key_words_set)
+
+            if not common_keywords:
+                continue
+
+            # Inizializza il punteggio per questa chiave KB
+            current_key_score = 0.0
+
+            # 1. Punteggio base: numero di parole chiave comuni
+            current_key_score += len(common_keywords)
+
+            # 2. Bonus per specificità delle parole chiave comuni
+            #    Si applica sia alle parole chiave della domanda che a quelle della chiave KB
+            #    per dare peso a match su termini importanti da entrambe le parti.
+            all_relevant_keywords_for_weighting = common_keywords.union(kb_key_words_set) # Considera anche le parole chiave uniche della KB per il loro peso intrinseco
+
+            for kw_to_weight in all_relevant_keywords_for_weighting:
+                # Le chiavi in specific_keyword_weights sono già normalizzate
+                weight = specific_keyword_weights.get(kw_to_weight, 0) # Usa kw_to_weight direttamente se le chiavi in specific_keyword_weights sono come quelle in kb_key_words_set
+                if kw_to_weight in common_keywords: # Applica peso solo se la parola è in comune
+                     current_key_score += weight
+                # elif kw_to_weight in kb_key_words_set: # Alternativa: dare un peso minore se la parola chiave è solo nella KB ma è importante
+                #    current_key_score += weight * 0.5 # Esempio di peso ridotto
+
+
+            # 3. Bonus per posizione delle parole chiave comuni nella domanda utente originale
+            #    Questo aiuta a dare priorità alle chiavi KB che matchano l'inizio della domanda.
+            for i, user_word_original_case in enumerate(original_user_words[:MAX_POSITION_BONUS_WORDS]):
+                normalized_user_word_for_check = normalize_text_for_keyword_search(user_word_original_case) # usa la stessa normalizzazione delle keyword
+                if normalized_user_word_for_check in common_keywords: # Verifica se la parola normalizzata è tra quelle comuni
+                    current_key_score += (MAX_POSITION_BONUS_WORDS - i) * POSITION_WEIGHT_FACTOR
+
+            # 4. Bonus per completezza del match (rapporto tra parole comuni e totali)
+            #    Rapporto di Jaccard modificato o simili.
+            #    Bonus se tutte le parole chiave dell'utente sono nel set di parole chiave della KB
+            if common_keywords == user_keywords_set:
+                current_key_score *= 1.5 # Moltiplicatore per match completo delle parole utente
+
+            # Bonus se tutte le parole chiave della KB sono nel set di parole chiave dell'utente
+            elif common_keywords == kb_key_words_set:
+                current_key_score *= 1.2 # Moltiplicatore se la domanda copre interamente la chiave KB
+
+            # Debug: Stampa punteggio per chiave
+            # if current_key_score > 0:
+            #    print(f"DEBUG: KB Key '{kb_key}' in Cat '{category_name}'. Common: {common_keywords}. Score: {current_key_score:.2f}")
+
+            if current_key_score > best_overall_score:
+                best_overall_score = current_key_score
                 best_answer_strat3 = kb_answer
-    if best_match_score > 0: return best_answer_strat3
+            # Gestione dei pareggi (tie-breaking):
+            # Se current_key_score == best_overall_score, si potrebbe preferire:
+            # - la risposta associata a una chiave KB più corta (più specifica)
+            # - la risposta più corta/lunga
+            # Per ora, si tiene la prima trovata con il punteggio massimo.
+
+    # Debug: Stampa il miglior match
+    # if best_answer_strat3:
+    #    print(f"DEBUG: Best match for '{query_text}' is from key associated with answer: '{best_answer_strat3[:50]}...' with score {best_overall_score:.2f}")
+    # else:
+    #    print(f"DEBUG: No keyword match for '{query_text}'")
+
+    if best_overall_score > 0: return best_answer_strat3
     return None
 
+# --- Funzioni relative a CCU e simulazione (invariate per questo task) ---
 def simulate_ccu_data_acquisition(num_records: int) -> pd.DataFrame:
     data = []
     current_time = datetime.now()

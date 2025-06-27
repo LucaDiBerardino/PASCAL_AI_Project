@@ -8,7 +8,14 @@
     "cultura_generale": {
         "rivoluzione_francese_cause": "Le cause principali della Rivoluzione Francese furono la crisi economica e finanziaria, le profonde disuguaglianze sociali e l'influenza delle idee illuministe.",
         "rivoluzione_francese_conseguenze": "Le conseguenze più significative della Rivoluzione Francese in Europa includono la diffusione degli ideali di libertà, uguaglianza e fraternità, la fine dell'assolutismo monarchico, l'ascesa del nazionalismo e l'inizio di un'era di conflitti e riforme politiche.",
-        "chi_ha_dipinto_la_gioconda": "La Gioconda (o Monna Lisa) è stata dipinta da Leonardo da Vinci."
+        "chi_ha_dipinto_la_gioconda": "La Gioconda (o Monna Lisa) è stata dipinta da Leonardo da Vinci.",
+        "autore_divina_commedia": "La Divina Commedia è stata scritta da Dante Alighieri.",
+        "capitale_australia": "La capitale dell'Australia è Canberra.",
+        "fotosintesi_clorofilliana_definizione": "La fotosintesi clorofilliana è il processo biochimico attraverso il quale le piante verdi e altri organismi producono sostanze organiche – principalmente carboidrati – a partire da anidride carbonica (CO2) e acqua (H2O) in presenza di luce solare.",
+        "inizio_seconda_guerra_mondiale": "La Seconda Guerra Mondiale è iniziata il 1° settembre 1939 con l'invasione della Polonia da parte della Germania.",
+        "autore_notte_stellata": "La Notte Stellata è un dipinto olio su tela del pittore olandese post-impressionista Vincent van Gogh, realizzato nel giugno 1889.",
+        "pianeta_piu_grande_sistema_solare": "Il pianeta più grande del nostro sistema solare è Giove.",
+        "teorema_di_pitagora_definizione": "In ogni triangolo rettangolo, l'area del quadrato costruito sull'ipotenusa è uguale alla somma delle aree dei quadrati costruiti sui cateti. Matematicamente: a² + b² = c², dove c è l'ipotenusa e a, b sono i cateti."
     },
     "termini_ai": {
         "intelligenza_artificiale": "L'Intelligenza Artificiale (AI) è un campo dell'informatica che si occupa di creare macchine capaci di simulare l'intelligenza umana.",
@@ -16,6 +23,13 @@
     },
     "oil_gas_base": {
         "bop_test_frequenza": "I test a pressione del BOP (Blowout Preventer) sottomarino devono essere eseguiti periodicamente, spesso ogni 21 giorni o dopo modifiche significative all'impianto, secondo standard come API 53. La pressione di prova è tipicamente 1.5 volte la pressione di esercizio massima per 5 minuti."
+    },
+    "ingegneria_elettronica_base": {
+        "legge_di_ohm_definizione": "La Legge di Ohm afferma che, in un conduttore metallico a temperatura costante, la differenza di potenziale (V) applicata ai suoi capi è direttamente proporzionale all'intensità della corrente elettrica (I) che lo attraversa. Matematicamente, V = I * R, dove R è la resistenza elettrica del conduttore.",
+        "transistore_definizione": "Un transistore è un dispositivo a semiconduttore utilizzato principalmente per amplificare o commutare segnali elettronici e potenza elettrica. È un componente fondamentale dell'elettronica moderna.",
+        "corrente_alternata_ac_definizione": "La corrente alternata (AC) è un tipo di corrente elettrica in cui la direzione del flusso di elettroni si inverte periodicamente nel tempo, tipicamente con una forma d'onda sinusoidale. È il tipo di corrente fornita dalle reti elettriche domestiche.",
+        "corrente_continua_dc_definizione": "La corrente continua (DC) è un tipo di corrente elettrica in cui il flusso di elettroni avviene sempre nella stessa direzione. È prodotta da batterie, pile e alimentatori DC.",
+        "voltmetro_cosa_misura": "Un voltmetro è uno strumento di misura utilizzato per determinare la differenza di potenziale elettrico, o tensione, tra due punti di un circuito elettrico."
     },
     "problem_solving_suggestions": {
         "pressione_pozzo_bassa_suggerimento": "Una pressione del pozzo bassa può indicare problemi di perdita di fluido di perforazione o insufficiente densità del fango. Verificare i parametri di densità e la circolazione.",
