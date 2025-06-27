@@ -72,6 +72,24 @@
       ],
       "related_ids": [],
       "category": "elettronica"
+    },
+    {
+      "id": 5,
+      "domanda": "Chi ha inventato la lampadina?",
+      "varianti_domanda": [
+        "Invento lampadina",
+        "Quando hanno inventato la lampadina?"
+      ],
+      "risposta": "La lampadina a incandescenza, come la conosciamo, è stata inventata da Thomas Edison nel 1879, anche se molti scienziati prima di lui avevano contribuito allo sviluppo dell'illuminazione elettrica.",
+      "level": "general",
+      "specificity_score": 20,
+      "parent_concept": null,
+      "followup_suggestions": [
+        "Vuoi sapere come funziona una lampadina?",
+        "Quali sono le diverse tecnologie di illuminazione?"
+      ],
+      "related_ids": [],
+      "category": "storia della scienza"
     }
   ]
 }
