@@ -90,6 +90,194 @@
       ],
       "related_ids": [],
       "category": "storia della scienza"
+    },
+    {
+      "id": 6,
+      "domanda": "Cos'è il Well Control?",
+      "varianti_domanda": [
+        "Definizione Well Control",
+        "Spiegazione Well Control",
+        "A cosa serve il Well Control?"
+      ],
+      "risposta": "Il Well Control (Controllo Pozzo) è l'insieme delle procedure e delle attrezzature utilizzate per prevenire le fuoriuscite incontrollate di fluidi dal pozzo (blowout) durante le operazioni di perforazione o completamento. Il suo obiettivo primario è mantenere l'integrità del pozzo e garantire la sicurezza del personale e dell'ambiente.",
+      "level": "general",
+      "specificity_score": 20,
+      "parent_concept": null,
+      "followup_suggestions": [
+        "Quali sono i principi base del Well Control?",
+        "Qual è l'attrezzatura principale per il Well Control?"
+      ],
+      "related_ids": [7],
+      "category": "oil_gas, well_control, sicurezza"
+    },
+    {
+      "id": 7,
+      "domanda": "Qual è l'attrezzatura principale del Well Control?",
+      "varianti_domanda": [
+        "Attrezzature Well Control",
+        "Strumenti Well Control",
+        "Componenti Well Control"
+      ],
+      "risposta": "L'attrezzatura principale del Well Control include il Blowout Preventer (BOP), le choke manifold, i serbatoi di fango (mud tanks), le pompe di fango e il sistema di controllo del BOP (CCU/Koomey Unit).",
+      "level": "specific",
+      "specificity_score": 30,
+      "parent_concept": 6,
+      "followup_suggestions": [
+        "Spiegami cos'è il BOP.",
+        "Cosa fa una choke manifold?"
+      ],
+      "related_ids": [8, 9],
+      "category": "oil_gas, well_control, attrezzatura"
+    },
+    {
+      "id": 8,
+      "domanda": "Cos'è un Blowout Preventer (BOP)?",
+      "varianti_domanda": [
+        "Definizione BOP",
+        "Spiegami il BOP",
+        "A cosa serve il BOP?"
+      ],
+      "risposta": "Il Blowout Preventer (BOP) è una serie di valvole meccaniche di grandi dimensioni installate alla testa del pozzo o sul fondale marino (per i pozzi sottomarini). La sua funzione critica è sigillare l'annulus o il foro del pozzo in caso di kick (influsso incontrollato di fluidi) per prevenire un blowout.",
+      "level": "general",
+      "specificity_score": 40,
+      "parent_concept": 7,
+      "followup_suggestions": [
+        "Quali tipi di BOP esistono?",
+        "Come funziona un BOP?"
+      ],
+      "related_ids": [10, 11],
+      "category": "oil_gas, BOP, attrezzatura, well_control"
+    },
+    {
+      "id": 9,
+      "domanda": "Quanti tipi di BOP esistono?",
+      "varianti_domanda": [
+        "Tipi di BOP",
+        "Classificazione BOP",
+        "Quali sono i BOP?"
+      ],
+      "risposta": "Esistono principalmente due tipi di BOP: i BOP ad anello (annular preventers), che sigillano attorno a qualsiasi forma nel pozzo, e i BOP a ganasce (ram preventers), che sigillano il pozzo utilizzando ganasce di diverse forme (tubo, cieche, a taglio).",
+      "level": "specific",
+      "specificity_score": 50,
+      "parent_concept": 8,
+      "followup_suggestions": [
+        "Spiegami il BOP ad anello.",
+        "Come funzionano le ganasce del BOP?"
+      ],
+      "related_ids": [8],
+      "category": "oil_gas, BOP, classificazione"
+    },
+    {
+      "id": 10,
+      "domanda": "Cos'è una Koomey Unit?",
+      "varianti_domanda": [
+        "Definizione Koomey",
+        "Funzione Koomey Unit",
+        "Central Control Unit BOP"
+      ],
+      "risposta": "La Koomey Unit (o Unità di Controllo BOP) è il sistema di controllo idraulico situato in superficie (o a bordo della piattaforma) che serve ad azionare a distanza le valvole del BOP sottomarino o di superficie. Mantiene la pressione nei circuiti idraulici per garantire l'attivazione rapida del BOP in caso di emergenza.",
+      "level": "specific",
+      "specificity_score": 60,
+      "parent_concept": 7,
+      "followup_suggestions": [
+        "Come funziona il sistema idraulico di una Koomey Unit?",
+        "Quali test si fanno sulla Koomey Unit?"
+      ],
+      "related_ids": [8],
+      "category": "oil_gas, BOP, controllo, attrezzatura"
+    },
+    {
+      "id": 11,
+      "domanda": "Come funziona un BOP sottomarino?",
+      "varianti_domanda": [
+        "Funzionamento BOP subsea",
+        "Meccanismo BOP sottomarino",
+        "Come si aziona un BOP sottomarino?"
+      ],
+      "risposta": "Un BOP sottomarino è installato sul fondale e controllato da una CCU (Control Command Unit) tramite cavi ombelicali o acusticamente. Riceve comandi idraulici o elettrici per chiudere le sue valvole (anulare o a ganasce) e sigillare il pozzo.",
+      "level": "specific",
+      "specificity_score": 70,
+      "parent_concept": 8,
+      "followup_suggestions": [
+        "Cos'è la CCU di un BOP sottomarino?",
+        "Quali sono le differenze tra BOP di superficie e sottomarino?"
+      ],
+      "related_ids": [12],
+      "category": "oil_gas, BOP, sottomarino, funzionamento"
+    },
+    {
+      "id": 12,
+      "domanda": "Cos'è la CCU (Control Command Unit) di un BOP sottomarino?",
+      "varianti_domanda": [
+        "Definizione CCU BOP",
+        "Funzione CCU BOP subsea",
+        "Centro di controllo BOP"
+      ],
+      "risposta": "La CCU è il cuore del sistema di controllo di un BOP sottomarino. È un'unità elettronica e idraulica che riceve comandi dalla superficie e li traduce in azioni fisiche per aprire o chiudere le valvole del BOP, monitorando costantemente lo stato del pozzo.",
+      "level": "specific",
+      "specificity_score": 80,
+      "parent_concept": 11,
+      "followup_suggestions": [
+        "Quali sono le ridondanze in una CCU?",
+        "Come avviene la comunicazione tra superficie e CCU?"
+      ],
+      "related_ids": [8],
+      "category": "oil_gas, BOP, CCU, controllo, sottomarino"
+    },
+    {
+      "id": 13,
+      "domanda": "Quali sono i principi base del Well Control?",
+      "varianti_domanda": [
+        "Principi Well Control",
+        "Concetti fondamentali Well Control"
+      ],
+      "risposta": "I principi base del Well Control si concentrano sul bilanciamento delle pressioni nel pozzo. Ciò include il mantenimento di una pressione idrostatica superiore alla pressione di formazione, il rilevamento rapido di kick, e l'isolamento e la circolazione del kick in modo sicuro fuori dal pozzo.",
+      "level": "specific",
+      "specificity_score": 40,
+      "parent_concept": 6,
+      "followup_suggestions": [
+        "Come si rileva un kick?",
+        "Qual è la funzione del fango di perforazione nel Well Control?"
+      ],
+      "related_ids": [],
+      "category": "oil_gas, well_control, principi"
+    },
+    {
+      "id": 14,
+      "domanda": "Cos'è una Choke Manifold?",
+      "varianti_domanda": [
+        "Definizione Choke Manifold",
+        "Funzione Choke Manifold"
+      ],
+      "risposta": "La choke manifold è un insieme di valvole e strozzatori (chokes) utilizzato per controllare la contropressione sul pozzo e deviare i fluidi in caso di kick, permettendo di mantenere il controllo della pressione del pozzo in modo graduale e sicuro.",
+      "level": "specific",
+      "specificity_score": 60,
+      "parent_concept": 7,
+      "followup_suggestions": [
+        "Come si opera una choke manifold?",
+        "Quali tipi di chokes esistono?"
+      ],
+      "related_ids": [],
+      "category": "oil_gas, well_control, attrezzatura"
+    },
+    {
+      "id": 15,
+      "domanda": "Quali test si eseguono sul BOP?",
+      "varianti_domanda": [
+        "Test BOP",
+        "Frequenza test BOP",
+        "Come si testa il BOP?"
+      ],
+      "risposta": "I BOP vengono sottoposti a test di pressione periodici, spesso ogni 7, 14 o 21 giorni (a seconda delle normative e del tipo di operazione) o dopo specifici interventi. I test verificano l'integrità del sistema per assicurare che possa sigillare il pozzo in caso di emergenza.",
+      "level": "specific",
+      "specificity_score": 70,
+      "parent_concept": 8,
+      "followup_suggestions": [
+        "Quali sono le normative API per i test BOP?",
+        "Cosa indica un fallimento del test BOP?"
+      ],
+      "related_ids": [],
+      "category": "oil_gas, BOP, test, sicurezza"
     }
   ]
 }
