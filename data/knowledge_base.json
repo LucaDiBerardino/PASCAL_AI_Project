@@ -570,8 +570,136 @@
       "risposta": "Per contribuire a progetti open source: 1) Inizia familiarizzando con Git e GitHub. 2) Trova un progetto che ti interessa: usa GitHub Explore, firstcontributions.github.io o etichette 'good first issue'. 3) Leggi la documentazione, soprattutto CONTRIBUTING.md e il Code of Conduct. 4) Inizia con contributi piccoli: correzioni di documentazione, bug minori. 5) Processo tipico: fork del repository, crea branch, implementa modifiche, testa, commit, push e apri pull request. 6) Nella PR, descrivi chiaramente cosa hai fatto e perché. 7) Rispondi prontamente ai feedback dei maintainer. 8) Sii paziente e rispettoso: i maintainer sono spesso volontari. Le contribuzioni open source migliorano le tue competenze, costruiscono il tuo portfolio e ti connettono con la comunità di sviluppatori.",
       "level": "beginner",
       "category": "open_source"
+    },
+    {
+      "id": 36,
+      "domanda": "Cos'è Docker e come funziona?",
+      "varianti_domanda": [
+        "Come usare Docker per sviluppo software?",
+        "Differenza tra Docker e macchine virtuali",
+        "Vantaggi di containerizzazione con Docker",
+        "Componenti principali dell'ecosistema Docker"
+      ],
+      "risposta": "Docker è una piattaforma open-source che automatizza il deployment di applicazioni all'interno di container software. I container impacchettano il codice, le dipendenze e le configurazioni necessarie, garantendo che l'applicazione funzioni allo stesso modo in qualsiasi ambiente. A differenza delle macchine virtuali, i container condividono il kernel del sistema operativo host, risultando più leggeri ed efficienti. I componenti principali sono: 1) Docker Engine (runtime per eseguire i container), 2) Dockerfile (script per costruire immagini), 3) Docker Hub (repository di immagini condivise), 4) Docker Compose (strumento per gestire applicazioni multi-container). I vantaggi includono consistenza tra ambienti di sviluppo/produzione, isolamento delle applicazioni, rapido deployment, efficienza delle risorse e scalabilità. La containerizzazione è diventata fondamentale nel DevOps moderno e nell'architettura a microservizi.",
+      "level": "intermediate",
+      "category": "devops"
+    },
+    {
+      "id": 37,
+      "domanda": "Come funzionano le list comprehension in Python?",
+      "varianti_domanda": [
+        "Sintassi e vantaggi delle list comprehension",
+        "Come convertire un ciclo for in list comprehension",
+        "Esempi di list, dict e set comprehension in Python",
+        "List comprehension vs map e filter in Python"
+      ],
+      "risposta": "Le list comprehension in Python sono un modo conciso e leggibile per creare liste basate su sequenze esistenti. Sintassi base: [espressione for elemento in iterabile if condizione]. Ad esempio, [x*2 for x in range(10) if x%2==0] crea una lista con i doppi dei numeri pari da 0 a 9. I vantaggi includono: 1) Codice più compatto e leggibile. 2) Migliori performance rispetto ai loop tradizionali. 3) Espressività funzionale. Oltre alle list comprehension, Python supporta dict comprehension {chiave:valore for elemento in iterabile} e set comprehension {elemento for elemento in iterabile}. Le comprehension possono sostituire combinazioni di map() e filter(), ma per operazioni complesse o quando la leggibilità è compromessa, i loop tradizionali o le funzioni map/filter possono essere preferibili. È buona pratica evitare comprehension troppo complesse o annidate che potrebbero rendere il codice difficile da capire.",
+      "level": "beginner",
+      "category": "python"
+    },
+    {
+      "id": 38,
+      "domanda": "Come gestire i conflitti in Git?",
+      "varianti_domanda": [
+        "Cosa fare quando si presenta un conflitto in Git?",
+        "Strumenti per risolvere conflitti di merge in Git",
+        "Come prevenire conflitti nei repository Git",
+        "Strategie per gestire merge conflicts"
+      ],
+      "risposta": "I conflitti in Git si verificano quando due branch modificano le stesse righe di un file e Git non può determinare automaticamente quale versione conservare. Per risolvere un conflitto: 1) Esegui 'git status' per identificare i file in conflitto. 2) Apri i file contrassegnati, troverai sezioni delimitate da '<<<<<<< HEAD', '=======' e '>>>>>>> branch-name'. 3) Modifica manualmente il file per riflettere lo stato desiderato, rimuovendo i delimitatori. 4) Esegui 'git add' per marcare il conflitto come risolto. 5) Completa il merge con 'git commit'. Strumenti utili: editor con supporto Git (VS Code, IntelliJ), 'git mergetool', interfacce grafiche come GitKraken. Per prevenire conflitti: 1) Pull/rebase frequentemente. 2) Suddividi il lavoro in commit piccoli e frequenti. 3) Comunica con il team sui file che stai modificando. 4) Usa feature branch brevi. 5) Standardizza la formattazione del codice con linter/formatter automatici.",
+      "level": "intermediate",
+      "category": "git"
+    },
+    {
+      "id": 39,
+      "domanda": "Cos'è REST API e come funziona?",
+      "varianti_domanda": [
+        "Principi delle API RESTful",
+        "Come progettare una REST API",
+        "Differenze tra REST, GraphQL e SOAP",
+        "HTTP methods nelle REST API"
+      ],
+      "risposta": "REST (REpresentational State Transfer) è uno stile architetturale per la progettazione di API web che utilizza HTTP per comunicare. I principi chiave sono: 1) Architettura client-server: separazione di responsabilità. 2) Stateless: ogni richiesta contiene tutte le informazioni necessarie. 3) Cacheable: le risposte devono dichiarare se sono cacheable. 4) Sistema a strati: il client non sa se comunica direttamente col server finale. 5) Interfaccia uniforme: identificazione delle risorse, manipolazione tramite rappresentazioni, messaggi auto-descrittivi e HATEOAS. Le REST API usano metodi HTTP standard: GET (lettura), POST (creazione), PUT/PATCH (aggiornamento), DELETE (rimozione). Le risorse sono identificate da URL, come '/users/123'. A differenza di SOAP, REST è più leggero e utilizza principalmente JSON, mentre GraphQL offre maggiore flessibilità nelle query ma con implementazione più complessa. Una buona REST API dovrebbe avere versioning, documentazione chiara (es. con Swagger/OpenAPI), gestione appropriata degli errori e seguire le best practice di sicurezza.",
+      "level": "intermediate",
+      "category": "web_development"
+    },
+    {
+      "id": 40,
+      "domanda": "Cos'è la programmazione asincrona in Python?",
+      "varianti_domanda": [
+        "Come usare async e await in Python?",
+        "Differenza tra threading, multiprocessing e asyncio in Python",
+        "Vantaggi della programmazione asincrona",
+        "Esempi di asyncio in Python"
+      ],
+      "risposta": "La programmazione asincrona in Python permette di eseguire operazioni senza bloccare l'esecuzione del programma, particolarmente utile per operazioni I/O-bound come richieste di rete o accesso a file. Dal Python 3.5+, si implementa principalmente con le keyword 'async' e 'await' e il modulo asyncio. Un esempio base: 'async def fetch_data(): await asyncio.sleep(1); return \"data\"'. Per eseguire funzioni asincrone: 'asyncio.run(main())'. A differenza del threading, asyncio usa un singolo thread con un event loop che gestisce task concorrenti, evitando overhead e problemi di thread safety. Rispetto al multiprocessing, è più leggero ma non sfrutta più core CPU per task CPU-bound. I vantaggi includono: 1) Alta concorrenza con basso overhead. 2) Codice sequenziale facile da leggere. 3) Ottimo per applicazioni I/O intensive come server web, scraping o API client. Limitazioni: richiede che tutte le operazioni blocanti siano 'awaitable', e il codice sincrono può bloccare l'intero event loop.",
+      "level": "advanced",
+      "category": "python"
+    },
+    {
+      "id": 41,
+      "domanda": "Come funzionano gli hash e la crittografia in informatica?",
+      "varianti_domanda": [
+        "Differenza tra algoritmi di hashing e crittografia",
+        "Come memorizzare password in modo sicuro",
+        "Cosa sono MD5, SHA, AES e RSA",
+        "Best practice di sicurezza per la protezione dei dati"
+      ],
+      "risposta": "Hashing e crittografia sono fondamentali per la sicurezza informatica ma servono scopi diversi. L'hashing trasforma i dati in una stringa fissa (digest) in modo irreversibile; è usato per verificare l'integrità dei dati e memorizzare password. Algoritmi comuni sono SHA-256, SHA-3 e bcrypt (specifico per password con salt e fattore di costo). La crittografia invece trasforma i dati per renderli illeggibili senza la chiave appropriata ed è reversibile. Si divide in simmetrica (stessa chiave per cifrare/decifrare, es. AES) e asimmetrica (coppia di chiavi pubblica/privata, es. RSA). Per memorizzare password in modo sicuro: 1) Mai salvare in chiaro. 2) Usare algoritmi di hashing specifici per password (bcrypt, Argon2, PBKDF2). 3) Aggiungere salt unici e random. 4) Implementare rate limiting e ritardi sui tentativi di login. 5) Verificare regolarmente la robustezza del sistema contro nuovi attacchi. MD5 e SHA-1 sono considerati obsoleti per usi di sicurezza a causa di vulnerabilità note.",
+      "level": "intermediate",
+      "category": "sicurezza"
+    },
+    {
+      "id": 42,
+      "domanda": "Cosa sono i web worker in JavaScript?",
+      "varianti_domanda": [
+        "Come implementare multithreading in JavaScript",
+        "Come eseguire operazioni in background con JavaScript",
+        "Differenza tra web worker, service worker e shared worker",
+        "Vantaggi di usare web worker per performance web"
+      ],
+      "risposta": "I Web Worker sono una funzionalità di JavaScript che permette di eseguire script in thread background separati dal thread principale dell'interfaccia utente. Questo consente di eseguire operazioni computazionalmente intensive senza bloccare la UI. I Web Worker non hanno accesso al DOM, agli oggetti window e document, ma possono comunicare col thread principale attraverso il sistema di messaggi. Esempio base: 'const worker = new Worker('worker.js'); worker.postMessage(data); worker.onmessage = (e) => console.log(e.data);'. Esistono tre tipi: 1) Dedicated Worker (standard): usato da una singola script. 2) Shared Worker: accessibile da multiple script, anche da finestre diverse. 3) Service Worker: funziona come proxy di rete per pagine web, permettendo caching e funzionalità offline. I Web Worker sono ideali per elaborazione di dati, calcoli complessi, parsing di grandi JSON, e operazioni di rete in background. Limitazioni includono l'overhead di serializzazione dei dati tra thread e il costo di creazione di nuovi thread.",
+      "level": "advanced",
+      "category": "web_development"
+    },
+    {
+      "id": 43,
+      "domanda": "Come funzionano i context manager in Python?",
+      "varianti_domanda": [
+        "Come usare with statement in Python?",
+        "Come creare un context manager personalizzato?",
+        "Esempi e vantaggi dei context manager",
+        "Implementazione di __enter__ e __exit__ in Python"
+      ],
+      "risposta": "I context manager in Python facilitano la gestione delle risorse garantendo la loro corretta acquisizione e rilascio, anche in caso di errori. Si usano con lo statement 'with', ad esempio: 'with open('file.txt') as f: contenuto = f.read()'. Dietro le quinte, il context manager implementa due metodi: __enter__ che viene chiamato all'inizio del blocco with e restituisce una risorsa, e __exit__ chiamato alla fine per rilasciare la risorsa. Per creare un context manager personalizzato, esistono due approcci: 1) Classe con metodi __enter__ e __exit__: 'class MioManager: def __enter__(self): return risorsa; def __exit__(self, exc_type, exc_val, exc_tb): cleanup()'. 2) Decorator @contextmanager più semplice: 'from contextlib import contextmanager; @contextmanager; def mio_manager(): try: yield risorsa; finally: cleanup()'. I context manager sono ideali per file, connessioni database, lock, transazioni e qualsiasi risorsa che richiede cleanup. Il modulo contextlib offre anche utilities come suppress, ExitStack e nullcontext.",
+      "level": "intermediate",
+      "category": "python"
+    },
+    {
+      "id": 44,
+      "domanda": "Cosa sono le code di messaggi (message queues) e quando usarle?",
+      "varianti_domanda": [
+        "Come funzionano RabbitMQ, Kafka e altri message broker",
+        "Architetture basate su code di messaggi",
+        "Vantaggi dei sistemi di messaggistica asincrona",
+        "Differenza tra message queue e publish-subscribe"
+      ],
+      "risposta": "Le code di messaggi sono sistemi di comunicazione asincrona tra componenti software che permettono di disaccoppiare i produttori di messaggi dai consumatori. Funzionano come intermediari (broker) che ricevono, memorizzano e instradano messaggi. Le principali implementazioni includono: 1) RabbitMQ: versatile, supporta multipli protocolli e pattern di routing. 2) Apache Kafka: alta throughput, focus su streaming e persistenza log. 3) Redis Pub/Sub: leggero, performante ma con minori garanzie di consegna. 4) AWS SQS/SNS: servizi gestiti cloud. I vantaggi includono: disaccoppiamento dei servizi, bilanciamento del carico, resilienza (i messaggi persistono se il consumatore è offline), scalabilità e picchi di gestione. Si distinguono due pattern principali: point-to-point (ogni messaggio va a un solo consumatore) e publish-subscribe (messaggi distribuiti a tutti i sottoscrittori). Le code di messaggi sono fondamentali nelle architetture a microservizi, sistemi distribuiti ed elaborazione asincrona di job, particolarmente utili quando i servizi hanno diverse velocità di elaborazione o richiedono comunicazione affidabile.",
+      "level": "intermediate",
+      "category": "architettura_software"
+    },
+    {
+      "id": 45,
+      "domanda": "Come scrivere documentazione efficace per il codice?",
+      "varianti_domanda": [
+        "Best practice per documentare progetti software",
+        "Strumenti per generare documentazione da codice",
+        "Come scrivere docstring in Python",
+        "Importanza e tecniche di documentazione tecnica"
+      ],
+      "risposta": "Una documentazione efficace è cruciale per la manutenibilità del software. Per documentare bene il codice: 1) Usa docstring/commenti per spiegare il perché, non solo il cosa (che dovrebbe essere chiaro dal codice stesso). 2) Segui convenzioni standard come Google Style, NumPy Style o reStructuredText in Python. 3) Documenta API pubbliche, parametri, valori di ritorno, eccezioni e esempi d'uso. 4) Mantieni la documentazione aggiornata con il codice. 5) Include README, guide di installazione/utilizzo e documentazione architetturale. Gli strumenti per generare documentazione includono Sphinx per Python, JavaDoc per Java, Doxygen (multilingua) e JSDoc per JavaScript. Una buona docstring in Python descrive lo scopo della funzione, parametri, return e gestione errori: 'def func(param): \"\"\"Descrizione. Args: param: cosa fa. Returns: cosa ritorna. Raises: quali eccezioni.\"\"\"'. La documentazione dovrebbe essere accessibile a diversi livelli: quick start per principianti, guide per casi d'uso comuni, e reference completo per esperti. Test e documentazione sono complementari: buoni test documentano il comportamento atteso e la documentazione spiega perché esiste quel comportamento.",
+      "level": "intermediate",
+      "category": "best_practices"
     }
   ]
 }
-
-[end of data/knowledge_base.json]
