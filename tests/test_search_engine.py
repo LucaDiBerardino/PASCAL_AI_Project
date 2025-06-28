@@ -202,7 +202,10 @@ def test_search_function_success():
     # Usa VALID_KB_PATH creato dalla fixture autouse
     results = search("Cos'è Python?", file_path=VALID_KB_PATH)
     assert len(results) == 1
-    assert results[0]["id"] == 2
+    # results[0] è ora una tupla (entry, score)
+    entry, score = results[0]
+    assert entry["id"] == 2
+    assert score == 100.0 # Essendo un match esatto atteso dalla KB di test
 
 def test_search_function_no_match():
     """Testa la funzione search quando non ci sono corrispondenze."""
@@ -272,9 +275,14 @@ def test_search_returns_exact_if_found(sample_kb): # Usa la KB originale per i t
     # VALID_KB_PATH ha "Cos'è Python?"
     results = search("Cos'è Python?", file_path=VALID_KB_PATH)
     assert len(results) == 1
-    assert results[0]["id"] == 2
-    # Verifica che non sia una tupla (entry, score)
-    assert isinstance(results[0], dict)
+    # Ora results è una lista di tuple (entry, score)
+    assert isinstance(results[0], tuple)
+    assert len(results[0]) == 2
+    entry, score = results[0]
+    assert isinstance(entry, dict)
+    assert isinstance(score, float)
+    assert entry["id"] == 2
+    assert score == 100.0 # Match esatto
 
 def test_search_returns_fuzzy_if_no_exact(sample_kb_for_fuzzy, tmp_path):
     # Crea un file KB temporaneo con i dati per il fuzzy test
@@ -284,23 +292,79 @@ def test_search_returns_fuzzy_if_no_exact(sample_kb_for_fuzzy, tmp_path):
 
     results = search("machine learnin", file_path=str(fuzzy_kb_file), fuzzy_threshold=80)
     assert len(results) == 1
-    assert results[0]["id"] == 102
-    assert isinstance(results[0], dict) # Deve restituire solo le entries
+    assert isinstance(results[0], tuple)
+    entry, score = results[0]
+    assert entry["id"] == 102
+    assert isinstance(score, float)
+    assert 80.0 <= score <= 100.0 # Punteggio fuzzy
 
-def test_search_fuzzy_results_are_sorted(sample_kb_for_fuzzy, tmp_path):
-    # Aggiungiamo una entry che matcha meno bene ma sopra soglia
-    kb_for_sort_test = sample_kb_for_fuzzy + [
-        {"id": 104, "domanda": "Machine", "varianti_domanda": [], "risposta": "Solo Machine"}
+def test_search_results_are_sorted_by_score(sample_kb_for_fuzzy, tmp_path):
+    # Nome precedente: test_search_fuzzy_results_are_not_necessarily_sorted_at_this_stage
+    # Utilizziamo la fixture kb_file_for_limit che è progettata per avere punteggi distinti
+    # e testare l'ordinamento in modo più affidabile.
+
+    # La fixture kb_file_for_limit crea un file KB con queste entry e relativi punteggi attesi per query "Risposta":
+    # {"id": 10, "domanda": "Risposta esatta al cento per cento"} -> Score alto (potenzialmente 100 se la query è "Risposta esatta al cento per cento", o molto alto per "Risposta")
+    # {"id": 20, "domanda": "Risposta simile al novanta per cento"} -> Score medio-alto
+    # {"id": 30, "domanda": "Risposta quasi all'ottanta per cento"} -> Score medio
+    # {"id": 40, "domanda": "Questa è una risposta diversa"} -> Score più basso (ma > threshold)
+
+    # Otteniamo il percorso del file dalla classe TestSearchLimitParameter o lo passiamo direttamente.
+    # Per semplicità, riutilizziamo la logica di creazione del file KB qui o invochiamo il test con la fixture.
+    # Dato che non possiamo chiamare una fixture di classe direttamente, ricreiamo una situazione simile.
+
+    test_entries_sorted = [
+        {"id": 10, "domanda": "Risposta esatta al cento per cento"}, # Previsto score più alto
+        {"id": 20, "domanda": "Risposta simile al novanta per cento"}, # Previsto score intermedio alto
+        {"id": 30, "domanda": "Risposta quasi all'ottanta per cento"}, # Previsto score intermedio basso
+        {"id": 40, "domanda": "Questa è una risposta diversa"}      # Previsto score più basso
     ]
-    fuzzy_kb_file = tmp_path / "fuzzy_sort_test_kb.json"
-    with open(fuzzy_kb_file, 'w', encoding='utf-8') as f:
-        json.dump({"entries": kb_for_sort_test}, f)
+    kb_file = tmp_path / "sorted_test_kb.json"
+    with open(kb_file, 'w', encoding='utf-8') as f:
+        json.dump({"entries": test_entries_sorted}, f)
 
-    # "machine learn" dovrebbe matchare ID 102 con score alto, e ID 104 con score più basso
-    results = search("machine learn", file_path=str(fuzzy_kb_file), fuzzy_threshold=70)
-    assert len(results) == 2
-    assert results[0]["id"] == 102 # Il match migliore ("Come funziona il machine learning?")
-    assert results[1]["id"] == 104 # Il match secondario ("Machine")
+    query = "Risposta"
+    results = search(query, file_path=str(kb_file), fuzzy_threshold=50) # Soglia bassa per includerli tutti
+
+    assert len(results) == 4, "Dovrebbero essere trovate 4 entry per la query 'Risposta'"
+
+    # Verifica il formato e che i punteggi siano presenti
+    scores = []
+    for item in results:
+        assert isinstance(item, tuple)
+        assert len(item) == 2
+        entry, score = item
+        assert isinstance(entry, dict)
+        assert isinstance(score, float)
+        assert 50.0 <= score <= 100.0
+        scores.append(score)
+
+    # Verifica che i punteggi siano ordinati in modo decrescente
+    for i in range(len(scores) - 1):
+        assert scores[i] >= scores[i+1], f"I risultati non sono ordinati per punteggio: {scores}"
+
+    # Verifica che gli ID siano nell'ordine atteso dei punteggi
+    # (Questo dipende da come rapidfuzz calcola i punteggi, ma ci aspettiamo un certo ordine)
+    # fuzz.WRatio("Risposta", "Risposta esatta al cento per cento")
+    # fuzz.WRatio("Risposta", "Risposta simile al novanta per cento")
+    # fuzz.WRatio("Risposta", "Risposta quasi all'ottanta per cento")
+    # fuzz.WRatio("Risposta", "Questa è una risposta diversa")
+    # I punteggi effettivi potrebbero non mettere ID 10 sempre primo con solo "Risposta".
+    # Se la query fosse "Risposta esatta al cento per cento", ID 10 sarebbe 100.
+    # Per la query "Risposta", l'ordine degli ID 10, 20, 30 potrebbe variare leggermente.
+    # L'importante è che la lista `results` sia ordinata in base ai punteggi *effettivamente calcolati*.
+    # La precedente asserzione `scores[i] >= scores[i+1]` è la verifica chiave per l'ordinamento.
+
+    # Opzionale: verificare l'ordine degli ID se i punteggi sono distinti e prevedibili.
+    # Ad esempio, se sapessimo che score(ID10) > score(ID20) > score(ID30) > score(ID40)
+    # allora potremmo verificare:
+    # assert results[0][0]["id"] == 10
+    # assert results[1][0]["id"] == 20
+    # assert results[2][0]["id"] == 30
+    # assert results[3][0]["id"] == 40
+    # Questa parte è più fragile a causa della natura del fuzzy matching.
+    # La verifica principale `scores[i] >= scores[i+1]` è più robusta.
+
 
 def test_search_no_results_if_nothing_matches(tmp_path):
     fuzzy_kb_file = tmp_path / "fuzzy_test_kb.json" # usa la stessa kb dei test fuzzy
@@ -310,8 +374,276 @@ def test_search_no_results_if_nothing_matches(tmp_path):
     results = search("Questa query non matcha nulla di nulla", file_path=str(fuzzy_kb_file), fuzzy_threshold=70)
     assert len(results) == 0
 
+def test_search_combines_exact_and_fuzzy_correctly(tmp_path, sample_kb_for_fuzzy):
+    """
+    Testa che i risultati esatti e fuzzy siano combinati, con priorità agli esatti.
+    E che il formato sia corretto.
+    """
+    # sample_kb_for_fuzzy ha:
+    # ID 101: "Cos'è l'intelligenza artificiale?"
+    # ID 102: "Come funziona il machine learning?"
+    # ID 103: "Test Driven Development"
+
+    # Creiamo una KB che contenga queste entry
+    combined_kb_data = SAMPLE_KB_DATA["entries"] + sample_kb_for_fuzzy # sample_kb ha ID 1, 2, 3
+    # ID 1: "Cos'è l'Energia?"
+    # ID 2: "Cos'è Python?"
+    # ID 3: "TermineComune"
+
+    combined_kb_file = tmp_path / "combined_test_kb.json"
+    with open(combined_kb_file, 'w', encoding='utf-8') as f:
+        json.dump({"entries": combined_kb_data}, f)
+
+    # Query 1: "Cos'è Python?" (match esatto con ID 2)
+    # Dovrebbe anche matchare in modo fuzzy con "Definizione Python" (variante di ID 2),
+    # ma il match esatto dovrebbe avere la precedenza con score 100.
+    results_python = search("Cos'è Python?", file_path=str(combined_kb_file), fuzzy_threshold=70)
+
+    assert len(results_python) >= 1
+    found_exact_python = False
+    for entry, score in results_python:
+        assert isinstance(entry, dict)
+        assert isinstance(score, float)
+        if entry["id"] == 2:
+            assert score == 100.0 # Match esatto
+            found_exact_python = True
+    assert found_exact_python, "Il match esatto per 'Cos'è Python?' non è stato trovato o non ha score 100."
+
+    # Assicurati che ID 2 non appaia due volte (una come esatta, una come fuzzy)
+    ids_in_python_results = [e["id"] for e,s in results_python]
+    assert ids_in_python_results.count(2) == 1, "ID 2 appare più di una volta nei risultati per 'Cos'è Python?'"
+
+
+    # Query 2: "intelligenza artif" (match fuzzy con ID 101, nessun match esatto)
+    results_ia = search("intelligenza artif", file_path=str(combined_kb_file), fuzzy_threshold=80)
+    assert len(results_ia) == 1
+    entry_ia, score_ia = results_ia[0]
+    assert entry_ia["id"] == 101
+    assert isinstance(score_ia, float)
+    assert 80.0 <= score_ia < 100.0 # Fuzzy, quindi < 100, ma >= soglia
+
+    # Query 3: "TermineComun" (match esatto con ID 3 "TermineComune", e fuzzy con ID 1 "TermineComune" in varianti)
+    # L'ID 3 (match esatto sulla domanda) dovrebbe avere 100.
+    # L'ID 1 (match esatto su variante) dovrebbe avere 100.
+    # La funzione search_exact restituisce entrambe.
+    # La nuova funzione search dovrebbe quindi restituire entrambe con punteggio 100.
+    results_termine = search("TermineComune", file_path=str(combined_kb_file), fuzzy_threshold=70)
+
+    ids_termine_found = {e["id"]: s for e, s in results_termine}
+    assert 1 in ids_termine_found, "ID 1 (match esatto variante) non trovato per 'TermineComune'"
+    assert ids_termine_found[1] == 100.0
+
+    assert 3 in ids_termine_found, "ID 3 (match esatto domanda) non trovato per 'TermineComune'"
+    assert ids_termine_found[3] == 100.0
+
+    # Verifica che non ci siano altri risultati se non ci si aspetta match fuzzy aggiuntivi forti
+    # Questo dipende dalla specificità della query e dalla KB
+    assert len(results_termine) == 2 # Aspettiamo solo i due match esatti
+    # L'ordine tra due punteggi uguali (100.0) non è garantito, quindi non lo testiamo qui.
+
+
+class TestSearchLimitParameter:
+    SAMPLE_ENTRIES_FOR_LIMIT_TEST = [
+        {"id": 1, "domanda": "Domanda A", "varianti_domanda": [], "risposta": "A"}, # Score alto se query è "Domanda A"
+        {"id": 2, "domanda": "Domanda B", "varianti_domanda": [], "risposta": "B"}, # Score medio se query è "Domanda"
+        {"id": 3, "domanda": "Domanda C", "varianti_domanda": [], "risposta": "C"}, # Score medio se query è "Domanda"
+        {"id": 4, "domanda": "Unica", "varianti_domanda": [], "risposta": "U"},     # Score basso se query è "Domanda"
+    ]
+
+    @pytest.fixture
+    def kb_file_for_limit(self, tmp_path):
+        kb_file = tmp_path / "limit_test_kb.json"
+        # Assicuriamo che le entry abbiano ID per un comportamento prevedibile con la deduplicazione
+        # e che i punteggi siano distinti o gestibili per testare l'ordinamento e il limite.
+        # Per questo test, la query "Domanda" dovrebbe dare punteggi diversi impliciti
+        # a seconda della somiglianza con A, B, C.
+        # "Domanda A" sarà il match più forte, poi B e C potrebbero essere simili, U più debole.
+        # Per rendere i punteggi più prevedibili e testabili per l'ordinamento:
+        # Usiamo una query che matcha esattamente una, e fuzzy le altre con vari gradi.
+        # Query: "Domanda A"
+        # Entry 1 ("Domanda A"): Score 100 (esatto)
+        # Entry 2 ("Domanda B"): Score fuzzy alto (ma < 100)
+        # Entry 3 ("Domanda C"): Score fuzzy medio
+        # Entry 4 ("Unica"): Score fuzzy basso
+        # Ci aspettiamo l'ordine: ID 1, ID 2, ID 3, ID 4 (o simile, a seconda dei calcoli di WRatio)
+
+        # Per un controllo più fine, potremmo creare entries con domande che sappiamo daranno un certo ordine di WRatio.
+        # Esempio per la query "Test Query Alpha":
+        # id:1, domanda: "Test Query Alpha" -> score 100
+        # id:2, domanda: "Test Query Alph" -> score ~95
+        # id:3, domanda: "Test Query" -> score ~90
+        # id:4, domanda: "Test" -> score ~60
+
+        # Semplifichiamo: usiamo la KB fornita e una query che dia risultati multipli.
+        # Query "Domanda"
+        # "Domanda A" (id1), "Domanda B" (id2), "Domanda C" (id3) dovrebbero avere punteggi alti
+        # "Unica" (id4) punteggio basso.
+        # L'ordine tra A, B, C con la query "Domanda" potrebbe essere molto simile.
+        # Modifichiamo le entry per avere punteggi più distinti con una query semplice.
+
+        test_entries = [
+            {"id": 10, "domanda": "Risposta esatta al cento per cento", "varianti_domanda": [], "risposta": "100"},
+            {"id": 20, "domanda": "Risposta simile al novanta per cento", "varianti_domanda": [], "risposta": "90"},
+            {"id": 30, "domanda": "Risposta quasi all'ottanta per cento", "varianti_domanda": [], "risposta": "80"},
+            {"id": 40, "domanda": "Questa è una risposta diversa", "varianti_domanda": [], "risposta": "50"},
+        ]
+
+        with open(kb_file, 'w', encoding='utf-8') as f:
+            json.dump({"entries": test_entries}, f)
+        return str(kb_file)
+
+    def test_limit_returns_correct_number_of_results(self, kb_file_for_limit):
+        query = "Risposta" # Dovrebbe matchare tutti con score diversi
+
+        results_limit_1 = search(query, file_path=kb_file_for_limit, fuzzy_threshold=50, limit=1)
+        assert len(results_limit_1) == 1
+        # Il primo risultato dovrebbe essere ID 10 (score più alto)
+        assert results_limit_1[0][0]["id"] == 10
+
+        results_limit_2 = search(query, file_path=kb_file_for_limit, fuzzy_threshold=50, limit=2)
+        assert len(results_limit_2) == 2
+        assert results_limit_2[0][0]["id"] == 10
+        assert results_limit_2[1][0]["id"] == 20
+
+        # Verifica che i punteggi siano effettivamente decrescenti
+        assert results_limit_2[0][1] >= results_limit_2[1][1]
+
+
+    def test_limit_greater_than_results_returns_all(self, kb_file_for_limit):
+        query = "Risposta"
+        # Ci sono 4 entry matchabili sopra la soglia 50
+        results_all = search(query, file_path=kb_file_for_limit, fuzzy_threshold=50, limit=10) # Limit > 4
+        assert len(results_all) == 4
+        # Verifica l'ordine
+        assert results_all[0][0]["id"] == 10
+        assert results_all[1][0]["id"] == 20
+        assert results_all[2][0]["id"] == 30
+        assert results_all[3][0]["id"] == 40
+        # Verifica che i punteggi siano decrescenti
+        for i in range(len(results_all) - 1):
+            assert results_all[i][1] >= results_all[i+1][1]
+
+
+    def test_limit_zero_returns_empty_list(self, kb_file_for_limit):
+        query = "Risposta"
+        results_limit_0 = search(query, file_path=kb_file_for_limit, fuzzy_threshold=50, limit=0)
+        assert len(results_limit_0) == 0
+
+    def test_limit_none_returns_all_ordered(self, kb_file_for_limit):
+        query = "Risposta"
+        results_no_limit = search(query, file_path=kb_file_for_limit, fuzzy_threshold=50, limit=None)
+        assert len(results_no_limit) == 4 # Tutte le entry matchabili
+        # Verifica l'ordine
+        assert results_no_limit[0][0]["id"] == 10
+        assert results_no_limit[1][0]["id"] == 20
+        assert results_no_limit[2][0]["id"] == 30
+        assert results_no_limit[3][0]["id"] == 40
+        for i in range(len(results_no_limit) - 1):
+            assert results_no_limit[i][1] >= results_no_limit[i+1][1]
+
+    def test_limit_negative_returns_all_ordered(self, kb_file_for_limit):
+        query = "Risposta"
+        results_neg_limit = search(query, file_path=kb_file_for_limit, fuzzy_threshold=50, limit=-1)
+        assert len(results_neg_limit) == 4
+        assert results_neg_limit[0][0]["id"] == 10
+        # ... (si potrebbero verificare tutti gli elementi come sopra)
+        for i in range(len(results_neg_limit) - 1):
+            assert results_neg_limit[i][1] >= results_neg_limit[i+1][1]
+
+
 # Per eseguire i test da riga di comando:
 # Assicurati di essere nella directory root del progetto.
 # Esegui: pytest
 # Oppure: python -m pytest tests/test_search_engine.py
 # (potrebbe essere necessario installare pytest: pip install pytest)
+
+# Test per calculate_confidence_score
+from src.search_engine import calculate_confidence_score # Importa la nuova funzione
+from rapidfuzz import fuzz as rapidfuzz_fuzz # Per confrontare i punteggi
+
+class TestCalculateConfidenceScore:
+    def test_exact_match_returns_100(self):
+        """Verifica che restituisca 100 se is_exact_match è True."""
+        entry = {"id": 1, "domanda": "Qualsiasi domanda"}
+        query = "Qualsiasi domanda"
+        assert calculate_confidence_score(query, entry, is_exact_match=True) == 100.0
+
+    def test_fuzzy_match_calculates_score(self):
+        """Verifica che calcoli un punteggio fuzzy se is_exact_match è False."""
+        entry = {
+            "id": 1,
+            "domanda": "Cos'è l'intelligenza artificiale?",
+            "varianti_domanda": ["Definizione IA", "spiegazione intelligenza artificiale"]
+        }
+        query = "cose linteligenza artificial" # Leggero errore di battitura e caso
+
+        # Calcolo atteso (circa)
+        # La funzione dovrebbe normalizzare query ed entry text
+        # "cose linteligenza artificial" vs "cos'è l'intelligenza artificiale?" -> alto score
+        # "cose linteligenza artificial" vs "definizione ia" -> score più basso
+        # "cose linteligenza artificial" vs "spiegazione intelligenza artificiale" -> alto score
+        # Ci aspettiamo che prenda il massimo tra questi.
+
+        # Manually check scores for reference (rapidfuzz normalizes internally to some extent for WRatio)
+        # score1 = rapidfuzz_fuzz.WRatio("cose linteligenza artificial", "cos'è l'intelligenza artificiale?")
+        # score2 = rapidfuzz_fuzz.WRatio("cose linteligenza artificial", "definizione ia")
+        # score3 = rapidfuzz_fuzz.WRatio("cose linteligenza artificial", "spiegazione intelligenza artificiale")
+        # print(f"DEBUG: s1={score1}, s2={score2}, s3={score3}")
+        # s1=93.33333333333333, s2=50.3030303030303, s3=88.57142857142857
+        # Max dovrebbe essere score1 ~93.33
+
+        expected_score_approx = rapidfuzz_fuzz.WRatio("cose linteligenza artificial", "cos'è l'intelligenza artificiale?")
+
+        actual_score = calculate_confidence_score(query, entry, is_exact_match=False)
+
+        # WRatio può dare risultati leggermente diversi a seconda delle versioni o normalizzazioni interne
+        # Asseriamo che sia vicino al massimo dei punteggi calcolati manualmente o a quello atteso.
+        # Per questo caso, il match con "Cos'è l'intelligenza artificiale?" dovrebbe essere il migliore.
+        assert actual_score == pytest.approx(expected_score_approx, abs=1.0) # Tolleranza di 1 punto
+        assert actual_score > 80 # Assicuriamoci che sia un punteggio ragionevolmente alto
+
+    def test_fuzzy_match_selects_best_from_domanda_or_varianti(self):
+        """Verifica che scelga il miglior punteggio tra domanda e varianti."""
+        entry = {
+            "id": 1,
+            "domanda": "Testo breve", # Match basso con "Testo lungo e dettagliato"
+            "varianti_domanda": ["Testo lungo e dettagliato"] # Match alto
+        }
+        query = "Testo lungo e dettagliato"
+
+        # Punteggio atteso è 100 perché la query è identica a una variante
+        expected_score = 100.0
+        actual_score = calculate_confidence_score(query, entry, is_exact_match=False)
+        assert actual_score == pytest.approx(expected_score)
+
+        entry_rev = {
+            "id": 2,
+            "domanda": "Testo lungo e dettagliato", # Match alto
+            "varianti_domanda": ["Testo breve"] # Match basso
+        }
+        actual_score_rev = calculate_confidence_score(query, entry_rev, is_exact_match=False)
+        assert actual_score_rev == pytest.approx(expected_score)
+
+    def test_no_text_in_entry_returns_zero_score(self):
+        """Verifica che restituisca 0 se l'entry non ha campi testuali validi."""
+        entry_empty = {"id": 1}
+        entry_none = {"id": 2, "domanda": None, "varianti_domanda": None}
+        entry_empty_strings = {"id": 3, "domanda": "", "varianti_domanda": [""]}
+
+        query = "Qualsiasi query"
+
+        assert calculate_confidence_score(query, entry_empty, is_exact_match=False) == 0.0
+        assert calculate_confidence_score(query, entry_none, is_exact_match=False) == 0.0
+        assert calculate_confidence_score(query, entry_empty_strings, is_exact_match=False) == 0.0
+
+    def test_empty_query_returns_zero_score(self):
+        """Verifica che restituisca 0 se la query è vuota."""
+        entry = {"id": 1, "domanda": "Domanda valida"}
+        assert calculate_confidence_score("", entry, is_exact_match=False) == 0.0
+        assert calculate_confidence_score(None, entry, is_exact_match=False) == 0.0 # type: ignore
+
+    def test_invalid_entry_or_query_type_returns_zero(self):
+        """Verifica che restituisca 0 per tipi di input non validi."""
+        assert calculate_confidence_score("query", None, is_exact_match=False) == 0.0 # type: ignore
+        assert calculate_confidence_score("query", "not a dict", is_exact_match=False) == 0.0 # type: ignore
+        assert calculate_confidence_score(123, {"domanda":"test"}, is_exact_match=False) == 0.0 # type: ignore
