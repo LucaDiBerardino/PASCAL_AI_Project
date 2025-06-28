@@ -440,6 +440,136 @@
       "followup_suggestions": [],
       "related_ids": [],
       "category": "ingegneria"
+    },
+    {
+      "id": 26,
+      "domanda": "Cos'è il test-driven development?",
+      "varianti_domanda": [
+        "Puoi spiegarmi TDD?",
+        "Come funziona il test-driven development?",
+        "Quali sono i principi del TDD?",
+        "Perché dovrei usare TDD nei miei progetti?"
+      ],
+      "risposta": "Il Test-Driven Development (TDD) è una metodologia di sviluppo software in cui prima si scrivono i test automatizzati che definiscono i requisiti del codice, e solo successivamente si implementa il codice per superare questi test. Il ciclo TDD segue il pattern Red-Green-Refactor: 1) Scrivi un test che fallisce (Red), 2) Scrivi il minimo codice necessario per far passare il test (Green), 3) Migliora il codice mantenendo il test funzionante (Refactor). I vantaggi del TDD includono codice più robusto, documentazione viva attraverso i test, e design più modulare e orientato all'uso.",
+      "level": "intermediate",
+      "category": "metodologie_sviluppo"
+    },
+    {
+      "id": 27,
+      "domanda": "Come gestire le dipendenze in Python?",
+      "varianti_domanda": [
+        "Qual è il modo migliore per gestire i pacchetti in Python?",
+        "Cosa sono pip, venv e requirements.txt?",
+        "Come isolo l'ambiente di sviluppo in Python?",
+        "Differenza tra virtualenv e conda in Python"
+      ],
+      "risposta": "In Python, le dipendenze si gestiscono principalmente con: 1) pip: il package installer di Python per installare pacchetti da PyPI. 2) Ambienti virtuali: come venv (integrato in Python 3.3+), virtualenv o conda, che creano ambienti isolati per ogni progetto, evitando conflitti tra pacchetti. 3) requirements.txt: file che elenca tutte le dipendenze con versioni specifiche, generato con 'pip freeze > requirements.txt' e installabile con 'pip install -r requirements.txt'. 4) Strumenti moderni: Poetry o Pipenv, che combinano gestione delle dipendenze e ambienti virtuali. La best practice è sempre utilizzare un ambiente virtuale per progetto e documentare le dipendenze in un file requirements.txt o equivalente.",
+      "level": "beginner",
+      "category": "python"
+    },
+    {
+      "id": 28,
+      "domanda": "Cos'è Git branching e perché è utile?",
+      "varianti_domanda": [
+        "Come funzionano i branch in Git?",
+        "Qual è lo scopo di creare branch diversi in Git?",
+        "Strategia migliore per usare i branch in Git",
+        "Come gestire feature branch in un progetto?"
+      ],
+      "risposta": "Git branching è una funzionalità che permette di divergere dalla linea principale di sviluppo (master/main) creando rami separati per lavorare su funzionalità o correzioni senza influenzare il codice principale. I branch sono utili perché: 1) Permettono lo sviluppo parallelo di più funzionalità da parte di diversi sviluppatori. 2) Isolano il lavoro sperimentale dal codice stabile. 3) Facilitano il processo di revisione del codice prima dell'integrazione. 4) Supportano i flussi di lavoro come Git Flow o GitHub Flow. Una strategia comune è creare un branch per ogni nuova feature o bugfix, testarlo separatamente, e poi unirlo al branch principale tramite pull request o merge dopo la revisione.",
+      "level": "intermediate",
+      "category": "git"
+    },
+    {
+      "id": 29,
+      "domanda": "Qual è la differenza tra = e == in Python?",
+      "varianti_domanda": [
+        "Cosa significano = e == in Python?",
+        "Quando usare = e quando == in Python?",
+        "Operatore di assegnazione vs operatore di uguaglianza in Python",
+        "= vs == in Python: spiegazione"
+      ],
+      "risposta": "In Python, '=' e '==' hanno scopi completamente diversi: 1) '=' è l'operatore di assegnazione. Viene usato per assegnare un valore a una variabile (es. x = 5). 2) '==' è l'operatore di confronto di uguaglianza. Viene usato per verificare se due valori sono uguali, restituendo True o False (es. if x == 5:). Confondere i due è un errore comune: usare '=' in una condizione assegnerà un valore invece di confrontarlo, mentre usare '==' per assegnare un valore genererà un errore di sintassi. Per confronti di identità (stesso oggetto in memoria), Python offre anche l'operatore 'is'.",
+      "level": "beginner",
+      "category": "python"
+    },
+    {
+      "id": 30,
+      "domanda": "Cosa sono i design pattern e perché sono importanti?",
+      "varianti_domanda": [
+        "Quali sono i principali design pattern in programmazione?",
+        "Come i design pattern migliorano il codice?",
+        "Esempi di design pattern comuni",
+        "Pattern di progettazione software più utilizzati"
+      ],
+      "risposta": "I design pattern sono soluzioni generali e riutilizzabili a problemi ricorrenti nella progettazione del software. Sono importanti perché: 1) Forniscono template testati per risolvere problemi comuni. 2) Creano un vocabolario condiviso tra sviluppatori. 3) Rendono il codice più manutenibile e flessibile. I pattern principali si dividono in: Creazionali (come Singleton, Factory, Builder), che gestiscono la creazione di oggetti; Strutturali (come Adapter, Decorator, Proxy), che definiscono relazioni tra oggetti; Comportamentali (come Observer, Strategy, Command), che gestiscono la comunicazione tra oggetti. Un buon sviluppatore non applica pattern ovunque, ma li usa solo quando appropriato per evitare complessità non necessaria.",
+      "level": "intermediate",
+      "category": "programmazione"
+    },
+    {
+      "id": 31,
+      "domanda": "Come gestire le eccezioni in Python?",
+      "varianti_domanda": [
+        "Come funziona try-except in Python?",
+        "Best practice per la gestione degli errori in Python",
+        "Come creare eccezioni personalizzate in Python?",
+        "Try, except, finally e else in Python: come si usano?"
+      ],
+      "risposta": "In Python, le eccezioni si gestiscono con i blocchi try-except. Struttura base: try: (codice che potrebbe generare errori), except Exception as e: (gestione dell'errore). Si possono catturare eccezioni specifiche (ValueError, TypeError) o multiple con except diversi. Il blocco 'else' si esegue se non ci sono eccezioni, mentre 'finally' si esegue sempre, con o senza eccezioni. Best practice: 1) Catturare solo eccezioni specifiche, non tutte genericamente. 2) Gestire l'eccezione vicino alla fonte. 3) Rilasciare risorse in blocchi finally. 4) Creare eccezioni personalizzate ereditando da Exception (class MioErrore(Exception): pass). 5) Usare with per risorse che richiedono chiusura (file, connessioni DB).",
+      "level": "intermediate",
+      "category": "python"
+    },
+    {
+      "id": 32,
+      "domanda": "Cosa sono i Python decorators?",
+      "varianti_domanda": [
+        "Come funzionano i decoratori in Python?",
+        "Come scrivere un decorator personalizzato in Python?",
+        "Esempi di uso dei decoratori in Python",
+        "@property e altri decoratori built-in in Python"
+      ],
+      "risposta": "I decoratori in Python sono funzioni speciali che modificano il comportamento di altre funzioni o metodi. Sono identificati dal simbolo @ sopra la definizione di una funzione. Un decoratore prende una funzione come input, aggiunge funzionalità, e restorna una nuova funzione senza modificare il codice originale. Esempio base: '@timer\\ndef funzione(): pass' equivale a 'funzione = timer(funzione)'. I decoratori sono utili per: 1) Logging e debugging. 2) Controllo accessi e autenticazione. 3) Memoizzazione (caching). 4) Misurazione del tempo di esecuzione. Python include decoratori built-in utili come @property, @classmethod, @staticmethod. I decoratori avanzati possono accettare argomenti e si possono implementare anche come classi.",
+      "level": "advanced",
+      "category": "python"
+    },
+    {
+      "id": 33,
+      "domanda": "Come ottimizzare le prestazioni di un'applicazione Python?",
+      "varianti_domanda": [
+        "Tecniche per velocizzare codice Python",
+        "Come profilare e migliorare l'efficienza in Python?",
+        "Alternative a Python puro per codice ad alte prestazioni",
+        "Strumenti per l'ottimizzazione di codice Python"
+      ],
+      "risposta": "Per ottimizzare le prestazioni di un'applicazione Python: 1) Profilazione: usa cProfile, line_profiler o memory_profiler per identificare i colli di bottiglia. 2) Usa strutture dati appropriate: set per ricerche, collections.deque per code, ecc. 3) Ottimizza algoritmi: riduce la complessità computazionale. 4) List/Dictionary comprehension invece di cicli for. 5) Estensioni C/C++: NumPy per operazioni su array, Cython per codice critico. 6) Parallelismo: multiprocessing per CPU-bound, asyncio per I/O-bound. 7) Caching: funzionalità@lru_cache, Redis. 8) JIT compilation: PyPy invece di CPython. 9) Database: ottimizzare query, usare indici. Ricorda: prima ottimizza algoritmi e strutture, poi misura di nuovo, e solo dopo considera ottimizzazioni di basso livello.",
+      "level": "advanced",
+      "category": "performance"
+    },
+    {
+      "id": 34,
+      "domanda": "Cos'è il clean code e perché è importante?",
+      "varianti_domanda": [
+        "Principi di clean code in programmazione",
+        "Come scrivere codice più leggibile e manutenibile",
+        "Pratiche di clean code secondo Robert C. Martin",
+        "Vantaggi dello scrivere clean code nel lungo termine"
+      ],
+      "risposta": "Il clean code è codice facile da leggere, comprendere e modificare da qualsiasi sviluppatore, non solo dall'autore originale. È importante perché: 1) La maggior parte del tempo di sviluppo è speso leggendo codice esistente. 2) Il codice viene letto molto più di quanto viene scritto. 3) Riduce i bug e facilita il debugging. I principi fondamentali includono: nomi significativi di variabili e funzioni; funzioni piccole con un solo scopo; commenti solo quando necessari; formattazione coerente; eliminazione di codice duplicato; gestione degli errori appropriata; testing adeguato. Secondo Robert C. Martin, un codice pulito fa una cosa sola, la fa bene, ed esprime chiaramente il suo intento. Investire in clean code aumenta la produttività a lungo termine, anche se richiede più tempo inizialmente.",
+      "level": "intermediate",
+      "category": "best_practices"
+    },
+    {
+      "id": 35,
+      "domanda": "Come contribuire a progetti open source?",
+      "varianti_domanda": [
+        "Da dove iniziare per contribuire all'open source?",
+        "Passi per fare la prima pull request su GitHub",
+        "Come trovare progetti open source adatti ai principianti",
+        "Etichetta e best practice per contribuire a progetti open source"
+      ],
+      "risposta": "Per contribuire a progetti open source: 1) Inizia familiarizzando con Git e GitHub. 2) Trova un progetto che ti interessa: usa GitHub Explore, firstcontributions.github.io o etichette 'good first issue'. 3) Leggi la documentazione, soprattutto CONTRIBUTING.md e il Code of Conduct. 4) Inizia con contributi piccoli: correzioni di documentazione, bug minori. 5) Processo tipico: fork del repository, crea branch, implementa modifiche, testa, commit, push e apri pull request. 6) Nella PR, descrivi chiaramente cosa hai fatto e perché. 7) Rispondi prontamente ai feedback dei maintainer. 8) Sii paziente e rispettoso: i maintainer sono spesso volontari. Le contribuzioni open source migliorano le tue competenze, costruiscono il tuo portfolio e ti connettono con la comunità di sviluppatori.",
+      "level": "beginner",
+      "category": "open_source"
     }
   ]
 }
