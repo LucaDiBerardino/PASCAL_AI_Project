@@ -14,6 +14,63 @@ def _normalize_text_for_search(text: str) -> str:
         return ""
     return text.lower()
 
+def calculate_confidence_score(query: str, entry: dict, is_exact_match: bool = False) -> float:
+    """
+    Calcola il punteggio di confidenza per una data query rispetto a una voce della knowledge base.
+
+    Se is_exact_match è True, indica che la query ha già trovato una corrispondenza esatta
+    con questa voce, quindi il punteggio di confidenza è massimo (100).
+
+    Altrimenti, il punteggio viene calcolato usando la similarità fuzzy (rapidfuzz.fuzz.WRatio)
+    tra la query e il miglior testo corrispondente trovato nella voce (tra "domanda" e
+    le "varianti_domanda").
+
+    Args:
+        query (str): La stringa di ricerca.
+        entry (dict): La voce della knowledge base (un dizionario) contro cui calcolare
+                      il punteggio. Ci si aspetta che contenga chiavi come "domanda"
+                      e "varianti_domanda".
+        is_exact_match (bool, optional): Se True, la funzione restituisce 100.
+                                         Default a False.
+
+    Returns:
+        float: Il punteggio di confidenza (0-100). Restituisce 0 se la query o l'entry
+               non sono valide per il calcolo fuzzy o se non ci sono campi testuali
+               validi nell'entry con cui confrontare.
+    """
+    if is_exact_match:
+        return 100.0
+
+    if not query or not isinstance(query, str) or \
+       not entry or not isinstance(entry, dict):
+        return 0.0
+
+    normalized_query = _normalize_text_for_search(query)
+    if not normalized_query:
+        return 0.0
+
+    max_score = 0.0
+
+    # Controlla la domanda principale
+    domanda_text = entry.get("domanda", "")
+    normalized_domanda = _normalize_text_for_search(domanda_text)
+    if normalized_domanda:
+        score_domanda = fuzz.WRatio(normalized_query, normalized_domanda)
+        if score_domanda > max_score:
+            max_score = score_domanda
+
+    # Controlla le varianti della domanda
+    varianti = entry.get("varianti_domanda", [])
+    if isinstance(varianti, list):
+        for variante_text in varianti:
+            normalized_variante = _normalize_text_for_search(variante_text)
+            if normalized_variante:
+                score_variante = fuzz.WRatio(normalized_query, normalized_variante)
+                if score_variante > max_score:
+                    max_score = score_variante
+
+    return max_score
+
 def load_knowledge_base(file_path: str = DEFAULT_KB_PATH) -> list[dict]:
     """
     Carica la knowledge base da un file JSON.

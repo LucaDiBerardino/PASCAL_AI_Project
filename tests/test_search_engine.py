@@ -315,3 +315,94 @@ def test_search_no_results_if_nothing_matches(tmp_path):
 # Esegui: pytest
 # Oppure: python -m pytest tests/test_search_engine.py
 # (potrebbe essere necessario installare pytest: pip install pytest)
+
+# Test per calculate_confidence_score
+from src.search_engine import calculate_confidence_score # Importa la nuova funzione
+from rapidfuzz import fuzz as rapidfuzz_fuzz # Per confrontare i punteggi
+
+class TestCalculateConfidenceScore:
+    def test_exact_match_returns_100(self):
+        """Verifica che restituisca 100 se is_exact_match è True."""
+        entry = {"id": 1, "domanda": "Qualsiasi domanda"}
+        query = "Qualsiasi domanda"
+        assert calculate_confidence_score(query, entry, is_exact_match=True) == 100.0
+
+    def test_fuzzy_match_calculates_score(self):
+        """Verifica che calcoli un punteggio fuzzy se is_exact_match è False."""
+        entry = {
+            "id": 1,
+            "domanda": "Cos'è l'intelligenza artificiale?",
+            "varianti_domanda": ["Definizione IA", "spiegazione intelligenza artificiale"]
+        }
+        query = "cose linteligenza artificial" # Leggero errore di battitura e caso
+
+        # Calcolo atteso (circa)
+        # La funzione dovrebbe normalizzare query ed entry text
+        # "cose linteligenza artificial" vs "cos'è l'intelligenza artificiale?" -> alto score
+        # "cose linteligenza artificial" vs "definizione ia" -> score più basso
+        # "cose linteligenza artificial" vs "spiegazione intelligenza artificiale" -> alto score
+        # Ci aspettiamo che prenda il massimo tra questi.
+
+        # Manually check scores for reference (rapidfuzz normalizes internally to some extent for WRatio)
+        # score1 = rapidfuzz_fuzz.WRatio("cose linteligenza artificial", "cos'è l'intelligenza artificiale?")
+        # score2 = rapidfuzz_fuzz.WRatio("cose linteligenza artificial", "definizione ia")
+        # score3 = rapidfuzz_fuzz.WRatio("cose linteligenza artificial", "spiegazione intelligenza artificiale")
+        # print(f"DEBUG: s1={score1}, s2={score2}, s3={score3}")
+        # s1=93.33333333333333, s2=50.3030303030303, s3=88.57142857142857
+        # Max dovrebbe essere score1 ~93.33
+
+        expected_score_approx = rapidfuzz_fuzz.WRatio("cose linteligenza artificial", "cos'è l'intelligenza artificiale?")
+
+        actual_score = calculate_confidence_score(query, entry, is_exact_match=False)
+
+        # WRatio può dare risultati leggermente diversi a seconda delle versioni o normalizzazioni interne
+        # Asseriamo che sia vicino al massimo dei punteggi calcolati manualmente o a quello atteso.
+        # Per questo caso, il match con "Cos'è l'intelligenza artificiale?" dovrebbe essere il migliore.
+        assert actual_score == pytest.approx(expected_score_approx, abs=1.0) # Tolleranza di 1 punto
+        assert actual_score > 80 # Assicuriamoci che sia un punteggio ragionevolmente alto
+
+    def test_fuzzy_match_selects_best_from_domanda_or_varianti(self):
+        """Verifica che scelga il miglior punteggio tra domanda e varianti."""
+        entry = {
+            "id": 1,
+            "domanda": "Testo breve", # Match basso con "Testo lungo e dettagliato"
+            "varianti_domanda": ["Testo lungo e dettagliato"] # Match alto
+        }
+        query = "Testo lungo e dettagliato"
+
+        # Punteggio atteso è 100 perché la query è identica a una variante
+        expected_score = 100.0
+        actual_score = calculate_confidence_score(query, entry, is_exact_match=False)
+        assert actual_score == pytest.approx(expected_score)
+
+        entry_rev = {
+            "id": 2,
+            "domanda": "Testo lungo e dettagliato", # Match alto
+            "varianti_domanda": ["Testo breve"] # Match basso
+        }
+        actual_score_rev = calculate_confidence_score(query, entry_rev, is_exact_match=False)
+        assert actual_score_rev == pytest.approx(expected_score)
+
+    def test_no_text_in_entry_returns_zero_score(self):
+        """Verifica che restituisca 0 se l'entry non ha campi testuali validi."""
+        entry_empty = {"id": 1}
+        entry_none = {"id": 2, "domanda": None, "varianti_domanda": None}
+        entry_empty_strings = {"id": 3, "domanda": "", "varianti_domanda": [""]}
+
+        query = "Qualsiasi query"
+
+        assert calculate_confidence_score(query, entry_empty, is_exact_match=False) == 0.0
+        assert calculate_confidence_score(query, entry_none, is_exact_match=False) == 0.0
+        assert calculate_confidence_score(query, entry_empty_strings, is_exact_match=False) == 0.0
+
+    def test_empty_query_returns_zero_score(self):
+        """Verifica che restituisca 0 se la query è vuota."""
+        entry = {"id": 1, "domanda": "Domanda valida"}
+        assert calculate_confidence_score("", entry, is_exact_match=False) == 0.0
+        assert calculate_confidence_score(None, entry, is_exact_match=False) == 0.0 # type: ignore
+
+    def test_invalid_entry_or_query_type_returns_zero(self):
+        """Verifica che restituisca 0 per tipi di input non validi."""
+        assert calculate_confidence_score("query", None, is_exact_match=False) == 0.0 # type: ignore
+        assert calculate_confidence_score("query", "not a dict", is_exact_match=False) == 0.0 # type: ignore
+        assert calculate_confidence_score(123, {"domanda":"test"}, is_exact_match=False) == 0.0 # type: ignore
