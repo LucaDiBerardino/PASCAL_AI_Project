@@ -3,3 +3,5 @@ thefuzz
 python-Levenshtein
 pytest
 rapidfuzz
+fastapi
+uvicorn[standard]
