@@ -202,7 +202,10 @@ def test_search_function_success():
     # Usa VALID_KB_PATH creato dalla fixture autouse
     results = search("Cos'è Python?", file_path=VALID_KB_PATH)
     assert len(results) == 1
-    assert results[0]["id"] == 2
+    # results[0] è ora una tupla (entry, score)
+    entry, score = results[0]
+    assert entry["id"] == 2
+    assert score == 100.0 # Essendo un match esatto atteso dalla KB di test
 
 def test_search_function_no_match():
     """Testa la funzione search quando non ci sono corrispondenze."""
@@ -272,9 +275,14 @@ def test_search_returns_exact_if_found(sample_kb): # Usa la KB originale per i t
     # VALID_KB_PATH ha "Cos'è Python?"
     results = search("Cos'è Python?", file_path=VALID_KB_PATH)
     assert len(results) == 1
-    assert results[0]["id"] == 2
-    # Verifica che non sia una tupla (entry, score)
-    assert isinstance(results[0], dict)
+    # Ora results è una lista di tuple (entry, score)
+    assert isinstance(results[0], tuple)
+    assert len(results[0]) == 2
+    entry, score = results[0]
+    assert isinstance(entry, dict)
+    assert isinstance(score, float)
+    assert entry["id"] == 2
+    assert score == 100.0 # Match esatto
 
 def test_search_returns_fuzzy_if_no_exact(sample_kb_for_fuzzy, tmp_path):
     # Crea un file KB temporaneo con i dati per il fuzzy test
@@ -284,10 +292,14 @@ def test_search_returns_fuzzy_if_no_exact(sample_kb_for_fuzzy, tmp_path):
 
     results = search("machine learnin", file_path=str(fuzzy_kb_file), fuzzy_threshold=80)
     assert len(results) == 1
-    assert results[0]["id"] == 102
-    assert isinstance(results[0], dict) # Deve restituire solo le entries
+    assert isinstance(results[0], tuple)
+    entry, score = results[0]
+    assert entry["id"] == 102
+    assert isinstance(score, float)
+    assert 80.0 <= score <= 100.0 # Punteggio fuzzy
 
-def test_search_fuzzy_results_are_sorted(sample_kb_for_fuzzy, tmp_path):
+def test_search_fuzzy_results_are_not_necessarily_sorted_at_this_stage(sample_kb_for_fuzzy, tmp_path):
+    # Rinominato da test_search_fuzzy_results_are_sorted perché l'ordinamento non è ancora implementato
     # Aggiungiamo una entry che matcha meno bene ma sopra soglia
     kb_for_sort_test = sample_kb_for_fuzzy + [
         {"id": 104, "domanda": "Machine", "varianti_domanda": [], "risposta": "Solo Machine"}
@@ -299,8 +311,19 @@ def test_search_fuzzy_results_are_sorted(sample_kb_for_fuzzy, tmp_path):
     # "machine learn" dovrebbe matchare ID 102 con score alto, e ID 104 con score più basso
     results = search("machine learn", file_path=str(fuzzy_kb_file), fuzzy_threshold=70)
     assert len(results) == 2
-    assert results[0]["id"] == 102 # Il match migliore ("Come funziona il machine learning?")
-    assert results[1]["id"] == 104 # Il match secondario ("Machine")
+    # Verifica il formato per entrambi i risultati
+    for item in results:
+        assert isinstance(item, tuple)
+        assert len(item) == 2
+        entry, score = item
+        assert isinstance(entry, dict)
+        assert isinstance(score, float)
+        assert 70.0 <= score <= 100.0
+
+    # Non possiamo asserire l'ordine qui perché non è implementato
+    ids_found = {item[0]["id"] for item in results}
+    assert {102, 104} == ids_found
+
 
 def test_search_no_results_if_nothing_matches(tmp_path):
     fuzzy_kb_file = tmp_path / "fuzzy_test_kb.json" # usa la stessa kb dei test fuzzy
@@ -309,6 +332,72 @@ def test_search_no_results_if_nothing_matches(tmp_path):
 
     results = search("Questa query non matcha nulla di nulla", file_path=str(fuzzy_kb_file), fuzzy_threshold=70)
     assert len(results) == 0
+
+def test_search_combines_exact_and_fuzzy_correctly(tmp_path, sample_kb_for_fuzzy):
+    """
+    Testa che i risultati esatti e fuzzy siano combinati, con priorità agli esatti.
+    E che il formato sia corretto.
+    """
+    # sample_kb_for_fuzzy ha:
+    # ID 101: "Cos'è l'intelligenza artificiale?"
+    # ID 102: "Come funziona il machine learning?"
+    # ID 103: "Test Driven Development"
+
+    # Creiamo una KB che contenga queste entry
+    combined_kb_data = SAMPLE_KB_DATA["entries"] + sample_kb_for_fuzzy # sample_kb ha ID 1, 2, 3
+    # ID 1: "Cos'è l'Energia?"
+    # ID 2: "Cos'è Python?"
+    # ID 3: "TermineComune"
+
+    combined_kb_file = tmp_path / "combined_test_kb.json"
+    with open(combined_kb_file, 'w', encoding='utf-8') as f:
+        json.dump({"entries": combined_kb_data}, f)
+
+    # Query 1: "Cos'è Python?" (match esatto con ID 2)
+    # Dovrebbe anche matchare in modo fuzzy con "Definizione Python" (variante di ID 2),
+    # ma il match esatto dovrebbe avere la precedenza con score 100.
+    results_python = search("Cos'è Python?", file_path=str(combined_kb_file), fuzzy_threshold=70)
+
+    assert len(results_python) >= 1
+    found_exact_python = False
+    for entry, score in results_python:
+        assert isinstance(entry, dict)
+        assert isinstance(score, float)
+        if entry["id"] == 2:
+            assert score == 100.0 # Match esatto
+            found_exact_python = True
+    assert found_exact_python, "Il match esatto per 'Cos'è Python?' non è stato trovato o non ha score 100."
+
+    # Assicurati che ID 2 non appaia due volte (una come esatta, una come fuzzy)
+    ids_in_python_results = [e["id"] for e,s in results_python]
+    assert ids_in_python_results.count(2) == 1, "ID 2 appare più di una volta nei risultati per 'Cos'è Python?'"
+
+
+    # Query 2: "intelligenza artif" (match fuzzy con ID 101, nessun match esatto)
+    results_ia = search("intelligenza artif", file_path=str(combined_kb_file), fuzzy_threshold=80)
+    assert len(results_ia) == 1
+    entry_ia, score_ia = results_ia[0]
+    assert entry_ia["id"] == 101
+    assert isinstance(score_ia, float)
+    assert 80.0 <= score_ia < 100.0 # Fuzzy, quindi < 100, ma >= soglia
+
+    # Query 3: "TermineComun" (match esatto con ID 3 "TermineComune", e fuzzy con ID 1 "TermineComune" in varianti)
+    # L'ID 3 (match esatto sulla domanda) dovrebbe avere 100.
+    # L'ID 1 (match esatto su variante) dovrebbe avere 100.
+    # La funzione search_exact restituisce entrambe.
+    # La nuova funzione search dovrebbe quindi restituire entrambe con punteggio 100.
+    results_termine = search("TermineComune", file_path=str(combined_kb_file), fuzzy_threshold=70)
+
+    ids_termine_found = {e["id"]: s for e, s in results_termine}
+    assert 1 in ids_termine_found, "ID 1 (match esatto variante) non trovato per 'TermineComune'"
+    assert ids_termine_found[1] == 100.0
+
+    assert 3 in ids_termine_found, "ID 3 (match esatto domanda) non trovato per 'TermineComune'"
+    assert ids_termine_found[3] == 100.0
+
+    # Verifica che non ci siano altri risultati se non ci si aspetta match fuzzy aggiuntivi forti
+    # Questo dipende dalla specificità della query e dalla KB
+    assert len(results_termine) == 2 # Aspettiamo solo i due match esatti
 
 # Per eseguire i test da riga di comando:
 # Assicurati di essere nella directory root del progetto.

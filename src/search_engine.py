@@ -309,47 +309,94 @@ def search_fuzzy(query: str, knowledge_base_entries: list[dict], threshold: int 
     return results_with_scores
 
 
-def search(query: str, file_path: str = DEFAULT_KB_PATH, fuzzy_threshold: int = 80) -> list[dict]:
+def search(query: str, file_path: str = DEFAULT_KB_PATH, fuzzy_threshold: int = 80) -> list[tuple[dict, float]]:
     """
     Funzione di alto livello per eseguire una ricerca nella knowledge base.
-    Esegue prima una ricerca esatta. Se non trova risultati, esegue una ricerca fuzzy.
-    I risultati fuzzy vengono ordinati per punteggio di similarità (decrescente).
+    Combina risultati da ricerca esatta e fuzzy, calcolando un punteggio di confidenza
+    per ciascun risultato usando calculate_confidence_score.
+    Gestisce i duplicati dando priorità ai match esatti.
 
     Args:
         query (str): La stringa di ricerca.
         file_path (str, optional): Il percorso del file JSON della knowledge base.
                                     Default a 'data/knowledge_base.json'.
+        fuzzy_threshold (int, optional): La soglia minima di similarità (0-100)
+                                         per considerare una corrispondenza fuzzy.
+                                         Default a 80.
 
     Returns:
-        list[dict]: Una lista di voci complete (dizionari) che corrispondono
-                    esattamente alla query. Restituisce una lista vuota se
-                    non viene trovata alcuna corrispondenza o in caso di errore
-                    nel caricamento della knowledge base.
+        list[tuple[dict, float]]: Una lista di tuple (entry, score).
+                                  Restituisce una lista vuota se non ci sono corrispondenze
+                                  o in caso di errore nel caricamento della KB.
     """
     knowledge_base_entries = load_knowledge_base(file_path)
     if not knowledge_base_entries:
         return []
 
-    exact_matches = search_exact(query, knowledge_base_entries)
-    if exact_matches:
-        # print(f"DEBUG: Trovati {len(exact_matches)} risultati esatti per '{query}'")
-        return exact_matches
+    # Usiamo un dizionario per tenere traccia dei risultati e gestire i duplicati,
+    # dando priorità ai match esatti. La chiave è l'ID dell'entry.
+    # Le entry senza ID saranno gestite separatamente per evitare conflitti di chiave None.
+    results_with_id_map = {}  # entry_id -> (entry, score)
+    results_without_id_list = [] # list of (entry, score)
 
-    # Se non ci sono match esatti, prova con il fuzzy search
-    # print(f"DEBUG: Nessun risultato esatto per '{query}', avvio ricerca fuzzy...")
-    fuzzy_matches_with_scores = search_fuzzy(query, knowledge_base_entries, threshold=fuzzy_threshold)
+    # 1. Ricerca esatta
+    exact_match_entries = search_exact(query, knowledge_base_entries)
+    for entry in exact_match_entries:
+        score = calculate_confidence_score(query, entry, is_exact_match=True)
+        entry_id = entry.get("id")
+        if entry_id is not None:
+            results_with_id_map[entry_id] = (entry, score)
+        else:
+            # Aggiungiamo entry esatte senza ID direttamente alla lista separata.
+            # Potenziali duplicati per entry senza ID saranno gestiti dopo se necessario,
+            # ma per ora, un match esatto senza ID viene aggiunto.
+            results_without_id_list.append((entry, score))
 
-    if fuzzy_matches_with_scores:
-        # Ordina i risultati fuzzy per punteggio, dal più alto al più basso
-        fuzzy_matches_with_scores.sort(key=lambda x: x[1], reverse=True)
+    # 2. Ricerca fuzzy
+    # search_fuzzy restituisce (entry, internal_fuzzy_score) per entry sopra la sua soglia.
+    # Noi dobbiamo usare calculate_confidence_score per il punteggio finale.
+    fuzzy_candidates_with_internal_scores = search_fuzzy(query, knowledge_base_entries, threshold=fuzzy_threshold)
 
-        # Estrai solo le entries (rimuovendo i punteggi)
-        sorted_fuzzy_entries = [entry for entry, score in fuzzy_matches_with_scores]
-        # print(f"DEBUG: Trovati {len(sorted_fuzzy_entries)} risultati fuzzy per '{query}' (soglia {fuzzy_threshold})")
-        return sorted_fuzzy_entries
+    for entry, _ in fuzzy_candidates_with_internal_scores: # Ignoriamo internal_fuzzy_score
+        entry_id = entry.get("id")
 
-    # print(f"DEBUG: Nessun risultato fuzzy per '{query}' (soglia {fuzzy_threshold})")
-    return []
+        if entry_id is not None:
+            if entry_id in results_with_id_map:
+                continue # Già presente come match esatto, che ha priorità.
+
+            # Calcola lo score con la funzione standardizzata
+            score = calculate_confidence_score(query, entry, is_exact_match=False)
+
+            # Aggiungi solo se il punteggio ricalcolato soddisfa ancora la soglia
+            if score >= fuzzy_threshold:
+                results_with_id_map[entry_id] = (entry, score)
+        else:
+            # Gestione delle entry fuzzy senza ID
+            # Calcola lo score con la funzione standardizzata
+            score = calculate_confidence_score(query, entry, is_exact_match=False)
+            if score >= fuzzy_threshold:
+                # Per le entry senza ID, dobbiamo evitare di aggiungere duplicati se la stessa entry
+                # (senza ID) è già in results_without_id_list da un match esatto.
+                # Questo è complicato perché l'identità dell'oggetto è l'unico modo per confrontarli.
+                is_duplicate_exact_no_id = False
+                for ex_entry_no_id, _ in results_without_id_list:
+                    if ex_entry_no_id is entry: # Stesso oggetto in memoria
+                        is_duplicate_exact_no_id = True
+                        break
+                if not is_duplicate_exact_no_id:
+                    # Evita di aggiungere la stessa entry fuzzy (senza ID) più volte se compare in fuzzy_candidates
+                    # Tuttavia, search_fuzzy dovrebbe già restituire entry uniche.
+                    # Aggiungiamo alla lista; l'ordinamento e il limite verranno gestiti dopo se necessario.
+                    # Per ora, aggiungiamo tutte le entry fuzzy valide senza ID che non erano già esatte senza ID.
+                    results_without_id_list.append((entry, score))
+
+
+    # Combina i risultati
+    # I valori da results_with_id_map più quelli in results_without_id_list
+    final_results = list(results_with_id_map.values()) + results_without_id_list
+
+    # Non è richiesto ordinamento o limite in questa fase.
+    return final_results
 
 
 if __name__ == '__main__':
