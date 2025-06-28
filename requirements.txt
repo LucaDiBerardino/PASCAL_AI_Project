@@ -1,3 +1,4 @@
 pandas
 thefuzz
 python-Levenshtein
+pytest
