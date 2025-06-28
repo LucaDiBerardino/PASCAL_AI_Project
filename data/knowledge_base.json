@@ -700,6 +700,116 @@
       "risposta": "Una documentazione efficace è cruciale per la manutenibilità del software. Per documentare bene il codice: 1) Usa docstring/commenti per spiegare il perché, non solo il cosa (che dovrebbe essere chiaro dal codice stesso). 2) Segui convenzioni standard come Google Style, NumPy Style o reStructuredText in Python. 3) Documenta API pubbliche, parametri, valori di ritorno, eccezioni e esempi d'uso. 4) Mantieni la documentazione aggiornata con il codice. 5) Include README, guide di installazione/utilizzo e documentazione architetturale. Gli strumenti per generare documentazione includono Sphinx per Python, JavaDoc per Java, Doxygen (multilingua) e JSDoc per JavaScript. Una buona docstring in Python descrive lo scopo della funzione, parametri, return e gestione errori: 'def func(param): \"\"\"Descrizione. Args: param: cosa fa. Returns: cosa ritorna. Raises: quali eccezioni.\"\"\"'. La documentazione dovrebbe essere accessibile a diversi livelli: quick start per principianti, guide per casi d'uso comuni, e reference completo per esperti. Test e documentazione sono complementari: buoni test documentano il comportamento atteso e la documentazione spiega perché esiste quel comportamento.",
       "level": "intermediate",
       "category": "best_practices"
+    },
+    {
+      "id": 56,
+      "domanda": "Cos'è l'American Petroleum Institute (API)?",
+      "varianti_domanda": [
+        "Cosa significa API nel settore oil and gas?",
+        "Che ruolo ha l'American Petroleum Institute?"
+      ],
+      "risposta": "L'American Petroleum Institute (API) è la più grande associazione di categoria dell'industria del petrolio e del gas naturale negli Stati Uniti. Sviluppa standard tecnici, pratiche raccomandate e specifiche per garantire la sicurezza, l'efficienza e la sostenibilità delle operazioni nel settore.",
+      "level": "general",
+      "category": "api_standards_overview"
+    },
+    {
+      "id": 57,
+      "domanda": "Cos'è l'API Spec Q1?",
+      "varianti_domanda": [
+        "A cosa serve la specifica API Q1?",
+        "Spiegami API Spec Q1"
+      ],
+      "risposta": "L'API Spec Q1 è una specifica per i sistemi di gestione della qualità per le organizzazioni che forniscono prodotti per l'industria del petrolio e del gas naturale. Definisce i requisiti minimi per sviluppare un sistema di gestione che garantisca la produzione costante di prodotti conformi e affidabili.",
+      "level": "intermediate",
+      "category": "api_quality_management"
+    },
+    {
+      "id": 58,
+      "domanda": "Cos'è l'API Spec Q2?",
+      "varianti_domanda": [
+        "Qual è lo scopo della specifica API Q2?",
+        "Differenza tra API Q1 e Q2"
+      ],
+      "risposta": "L'API Spec Q2 è una pratica raccomandata che si concentra sui sistemi di gestione della qualità per le organizzazioni di servizi per l'industria petrolifera e del gas. A differenza della Q1, che riguarda i produttori di beni, la Q2 è specifica per le aziende che forniscono servizi come la manutenzione, la riparazione e le operazioni sul campo.",
+      "level": "intermediate",
+      "category": "api_quality_management"
+    },
+    {
+      "id": 59,
+      "domanda": "Cos'è l'API Standard 650?",
+      "varianti_domanda": [
+        "A cosa si applica l'API Std 650?",
+        "Standard per serbatoi saldati"
+      ],
+      "risposta": "L'API Standard 650 ('Welded Tanks for Oil Storage') definisce i requisiti minimi per la progettazione, fabbricazione, montaggio e ispezione di serbatoi di stoccaggio in acciaio saldati, fuori terra, cilindrici e a tetto aperto o chiuso, utilizzati nell'industria petrolifera.",
+      "level": "specific",
+      "category": "api_equipment_standards"
+    },
+    {
+      "id": 60,
+      "domanda": "Cos'è l'API Recommended Practice 580?",
+      "varianti_domanda": [
+        "Spiegami l'API RP 580",
+        "Cos'è il Risk-Based Inspection (RBI)?"
+      ],
+      "risposta": "L'API RP 580 ('Risk-Based Inspection' o RBI) è una pratica raccomandata che descrive una metodologia per utilizzare l'analisi del rischio per sviluppare piani di ispezione per attrezzature a pressione, come recipienti e tubazioni. L'obiettivo è ottimizzare le attività ispettive concentrandosi sulle attrezzature a più alto rischio.",
+      "level": "intermediate",
+      "category": "api_inspection_practices"
+    },
+    {
+      "id": 61,
+      "domanda": "Cos'è l'API Standard 570?",
+      "varianti_domanda": [
+        "A cosa serve l'API 570?",
+        "Codice di ispezione per tubazioni"
+      ],
+      "risposta": "L'API Standard 570 ('Piping Inspection Code: In-service Inspection, Rating, Repair, and Alteration of Piping Systems') è un codice di ispezione che copre le attività di ispezione, valutazione, riparazione e modifica dei sistemi di tubazioni in servizio. Fornisce le linee guida per mantenere l'integrità e la sicurezza delle tubazioni.",
+      "level": "specific",
+      "category": "api_inspection_practices"
+    },
+    {
+      "id": 62,
+      "domanda": "Cos'è l'API Standard 510?",
+      "varianti_domanda": [
+        "Spiegami l'API 510",
+        "Codice di ispezione per recipienti a pressione"
+      ],
+      "risposta": "L'API Standard 510 ('Pressure Vessel Inspection Code: In-Service Inspection, Rating, Repair, and Alteration') è il codice di riferimento per l'ispezione e la manutenzione dei recipienti a pressione dopo che sono stati messi in servizio. Simile all'API 570 per le tubazioni, il 510 si concentra sulla sicurezza e l'integrità dei recipienti.",
+      "level": "specific",
+      "category": "api_inspection_practices"
+    },
+    {
+      "id": 63,
+      "domanda": "Qual è la differenza tra una Specifica (Spec), uno Standard (Std) e una Pratica Raccomandata (RP) API?",
+      "varianti_domanda": [
+        "Tipologie di documenti API",
+        "Differenza Spec, Std, RP API"
+      ],
+      "risposta": "Le tipologie di documenti API hanno scopi diversi. Una Specifica (Spec) definisce requisiti prescrittivi per i materiali o i prodotti. Uno Standard (Std) fornisce requisiti e best practice per una vasta gamma di operazioni. Una Pratica Raccomandata (RP) presenta pratiche sicure e collaudate, ma è meno prescrittiva di uno standard, offrendo più flessibilità.",
+      "level": "general",
+      "category": "api_standards_overview"
+    },
+    {
+      "id": 64,
+      "domanda": "Cos'è l'API Spec 6A?",
+      "varianti_domanda": [
+        "A cosa serve la specifica API 6A?",
+        "Standard per attrezzature di testa pozzo"
+      ],
+      "risposta": "L'API Spec 6A ('Specification for Wellhead and Christmas Tree Equipment') definisce i requisiti per la progettazione, i materiali, la fabbricazione e il collaudo delle attrezzature utilizzate per la testa del pozzo e gli alberi di Natale (Christmas Tree) nell'industria petrolifera e del gas.",
+      "level": "specific",
+      "category": "api_equipment_standards"
+    },
+    {
+      "id": 65,
+      "domanda": "Cos'è l'API Recommended Practice 521?",
+      "varianti_domanda": [
+        "Spiegami l'API RP 521",
+        "Guida ai sistemi di scarico e depressurizzazione"
+      ],
+      "risposta": "L'API RP 521 ('Guide for Pressure-Relieving and Depressuring Systems') fornisce linee guida per esaminare le cause di sovrapressione, determinare le portate di scarico e selezionare e progettare sistemi di scarico e depressurizzazione per raffinerie e impianti petrolchimici.",
+      "level": "intermediate",
+      "category": "api_safety_practices"
     }
   ]
 }
