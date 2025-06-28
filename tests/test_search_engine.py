@@ -324,6 +324,75 @@ def test_search_fuzzy_results_are_not_necessarily_sorted_at_this_stage(sample_kb
     ids_found = {item[0]["id"] for item in results}
     assert {102, 104} == ids_found
 
+    # Verifica l'ordinamento: l'ID 102 (match migliore) dovrebbe venire prima dell'ID 104
+    scores = [item[1] for item in results]
+    assert scores[0] >= scores[1], "I risultati non sono ordinati per punteggio decrescente."
+    # Verifica che l'ID 102 sia effettivamente il primo se il suo punteggio è maggiore
+    # Questo è un controllo più specifico se conosciamo i punteggi attesi
+    score_id102 = next(item[1] for item in results if item[0]["id"] == 102)
+    score_id104 = next(item[1] for item in results if item[0]["id"] == 104)
+
+    if score_id102 > score_id104:
+        assert results[0][0]["id"] == 102, "L'entry con ID 102 (punteggio più alto) non è la prima."
+        assert results[1][0]["id"] == 104, "L'entry con ID 104 (punteggio più basso) non è la seconda."
+    elif score_id104 > score_id102: # Improbabile per questa query ma per completezza
+        assert results[0][0]["id"] == 104
+        assert results[1][0]["id"] == 102
+    # Se i punteggi sono uguali, l'ordine tra loro non è garantito oltre all'essere raggruppati.
+
+
+def test_search_results_are_sorted_by_score(sample_kb_for_fuzzy, tmp_path):
+    # Rinominato da test_search_fuzzy_results_are_not_necessarily_sorted_at_this_stage
+    # Aggiungiamo una entry che matcha meno bene ma sopra soglia
+    kb_for_sort_test = sample_kb_for_fuzzy + [
+        {"id": 104, "domanda": "Machine", "varianti_domanda": [], "risposta": "Solo Machine"}, # Punteggio più basso per "machine learn"
+        {"id": 105, "domanda": "Learn Machine Now", "varianti_domanda": [], "risposta": "Learn Machine Now"} # Punteggio intermedio per "machine learn"
+    ]
+    fuzzy_kb_file = tmp_path / "fuzzy_sort_test_kb.json"
+    with open(fuzzy_kb_file, 'w', encoding='utf-8') as f:
+        json.dump({"entries": kb_for_sort_test}, f)
+
+    # "machine learn" dovrebbe matchare ID 102 (machine learning) con score alto,
+    # ID 105 (Learn Machine Now) con score medio,
+    # e ID 104 (Machine) con score più basso.
+    query = "machine learn"
+    results = search(query, file_path=str(fuzzy_kb_file), fuzzy_threshold=60) # Soglia bassa per includere tutti
+    assert len(results) == 3, "Dovrebbero esserci 3 risultati per il test di ordinamento"
+
+    # Verifica il formato e che i punteggi siano decrescenti
+    previous_score = float('inf')
+    ids_found = []
+    for item in results:
+        assert isinstance(item, tuple)
+        assert len(item) == 2
+        entry, score = item
+        assert isinstance(entry, dict)
+        assert isinstance(score, float)
+        assert 60.0 <= score <= 100.0
+        assert score <= previous_score, f"L'ordinamento per punteggio non è corretto. Score precedente: {previous_score}, Score attuale: {score} per ID {entry['id']}"
+        previous_score = score
+        ids_found.append(entry['id'])
+
+    # Verifica che gli ID attesi siano presenti (l'ordine è già verificato sopra)
+    assert set(ids_found) == {102, 104, 105}
+
+    # Per maggiore robustezza, otteniamo i punteggi specifici se possibile
+    # (dipende da implementazione esatta di fuzz.WRatio e normalizzazione)
+    # Questo è più per debug, l'asserzione `score <= previous_score` è la chiave.
+    score_id102 = next((s for e, s in results if e['id'] == 102), None)
+    score_id105 = next((s for e, s in results if e['id'] == 105), None)
+    score_id104 = next((s for e, s in results if e['id'] == 104), None)
+
+    assert score_id102 is not None and score_id105 is not None and score_id104 is not None, "Non tutte le entry attese sono state trovate"
+
+    # L'ordine atteso dei punteggi è: score_id102 > score_id105 > score_id104
+    # Questo è già implicitamente controllato dal loop sopra, ma possiamo asserirlo esplicitamente
+    # se i punteggi sono distinti.
+    if score_id102 > score_id105 and score_id105 > score_id104:
+        assert ids_found == [102, 105, 104], "L'ordine degli ID non corrisponde all'ordine atteso dei punteggi."
+    # Se alcuni punteggi sono uguali, l'ordine relativo di quegli elementi specifici non è garantito,
+    # ma l'ordinamento generale per punteggio deve ancora valere.
+
 
 def test_search_no_results_if_nothing_matches(tmp_path):
     fuzzy_kb_file = tmp_path / "fuzzy_test_kb.json" # usa la stessa kb dei test fuzzy

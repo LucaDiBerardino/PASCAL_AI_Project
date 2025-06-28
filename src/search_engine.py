@@ -395,7 +395,9 @@ def search(query: str, file_path: str = DEFAULT_KB_PATH, fuzzy_threshold: int = 
     # I valori da results_with_id_map più quelli in results_without_id_list
     final_results = list(results_with_id_map.values()) + results_without_id_list
 
-    # Non è richiesto ordinamento o limite in questa fase.
+    # Ordina i risultati in base allo score, in ordine decrescente
+    final_results.sort(key=lambda x: x[1], reverse=True)
+
     return final_results
 
 
