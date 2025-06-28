@@ -2,3 +2,4 @@ pandas
 thefuzz
 python-Levenshtein
 pytest
+rapidfuzz
