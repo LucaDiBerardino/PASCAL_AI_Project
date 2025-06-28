@@ -1,490 +1,218 @@
 import json
 import os
-from rapidfuzz import fuzz # Import per il fuzzy matching
-
-# Definisce il percorso predefinito relativo alla posizione di questo script
-DEFAULT_KB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'knowledge_base.json')
-
-def _normalize_text_for_search(text: str) -> str:
-    """
-    Helper function to normalize text for searching (lowercase).
-    Potrebbe essere espansa per rimuovere punteggiatura o altro se necessario.
-    """
-    if not isinstance(text, str):
-        return ""
-    return text.lower()
-
-def calculate_confidence_score(query: str, entry: dict, is_exact_match: bool = False) -> float:
-    """
-    Calcola il punteggio di confidenza per una data query rispetto a una voce della knowledge base.
-
-    Se is_exact_match è True, indica che la query ha già trovato una corrispondenza esatta
-    con questa voce, quindi il punteggio di confidenza è massimo (100).
-
-    Altrimenti, il punteggio viene calcolato usando la similarità fuzzy (rapidfuzz.fuzz.WRatio)
-    tra la query e il miglior testo corrispondente trovato nella voce (tra "domanda" e
-    le "varianti_domanda").
-
-    Args:
-        query (str): La stringa di ricerca.
-        entry (dict): La voce della knowledge base (un dizionario) contro cui calcolare
-                      il punteggio. Ci si aspetta che contenga chiavi come "domanda"
-                      e "varianti_domanda".
-        is_exact_match (bool, optional): Se True, la funzione restituisce 100.
-                                         Default a False.
-
-    Returns:
-        float: Il punteggio di confidenza (0-100). Restituisce 0 se la query o l'entry
-               non sono valide per il calcolo fuzzy o se non ci sono campi testuali
-               validi nell'entry con cui confrontare.
-    """
-    if is_exact_match:
-        return 100.0
-
-    if not query or not isinstance(query, str) or \
-       not entry or not isinstance(entry, dict):
-        return 0.0
-
-    normalized_query = _normalize_text_for_search(query)
-    if not normalized_query:
-        return 0.0
-
-    max_score = 0.0
-
-    # Controlla la domanda principale
-    domanda_text = entry.get("domanda", "")
-    normalized_domanda = _normalize_text_for_search(domanda_text)
-    if normalized_domanda:
-        score_domanda = fuzz.WRatio(normalized_query, normalized_domanda)
-        if score_domanda > max_score:
-            max_score = score_domanda
-
-    # Controlla le varianti della domanda
-    varianti = entry.get("varianti_domanda", [])
-    if isinstance(varianti, list):
-        for variante_text in varianti:
-            normalized_variante = _normalize_text_for_search(variante_text)
-            if normalized_variante:
-                score_variante = fuzz.WRatio(normalized_query, normalized_variante)
-                if score_variante > max_score:
-                    max_score = score_variante
-
-    return max_score
-
-def load_knowledge_base(file_path: str = DEFAULT_KB_PATH) -> list[dict]:
-    """
-    Carica la knowledge base da un file JSON.
-
-    Args:
-        file_path (str): Il percorso del file JSON della knowledge base.
-                         Default a 'data/knowledge_base.json' relativo alla root del progetto.
-
-    Returns:
-        list[dict]: Una lista di dizionari, dove ogni dizionario rappresenta una voce
-                    della knowledge base. Restituisce una lista vuota se il file non viene
-                    trovato, non è un JSON valido, o non ha la struttura attesa.
-    """
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            if isinstance(data, dict) and "entries" in data and isinstance(data["entries"], list):
-                return data["entries"]
-            elif isinstance(data, list): # Supporta anche il caso in cui il JSON sia direttamente una lista di entries
-                return data
-            else:
-                print(f"Errore: Il file della knowledge base in {file_path} non ha la struttura attesa (oggetto con chiave 'entries' o lista di entries).")
-                return []
-    except FileNotFoundError:
-        print(f"Errore: File della knowledge base non trovato in {file_path}")
-        return []
-    except json.JSONDecodeError:
-        print(f"Errore: Il file della knowledge base in {file_path} non è un JSON valido.")
-        return []
-
-def search_exact(query: str, knowledge_base_entries: list[dict]) -> list[dict]:
-    """
-    Cerca una corrispondenza esatta (case-insensitive) della query nella knowledge base.
-
-    La ricerca viene effettuata nel campo "domanda" e in ogni stringa
-    all'interno della lista "varianti_domanda" di ciascuna voce.
-
-    Args:
-        query (str): La stringa di ricerca.
-        knowledge_base_entries (list[dict]): La knowledge base caricata, rappresentata come
-                                             una lista di dizionari (voci).
-
-    Returns:
-        list[dict]: Una lista di voci complete (dizionari) che corrispondono
-                    esattamente alla query. Restituisce una lista vuota se
-                    non viene trovata alcuna corrispondenza o se l'input non è valido.
-    """
-    if not query or not isinstance(query, str) or \
-       not isinstance(knowledge_base_entries, list):
-        return []
-
-    matched_entries = []
-    normalized_query = _normalize_text_for_search(query)
-
-    if not normalized_query: # Se la query normalizzata è vuota
-        return []
-
-    for entry in knowledge_base_entries:
-        # Controlla la domanda principale
-        domanda_text = entry.get("domanda", "")
-        normalized_domanda = _normalize_text_for_search(domanda_text)
-
-        if normalized_domanda == normalized_query:
-            if entry not in matched_entries:
-                matched_entries.append(entry)
-            # Non usare 'continue' qui, perché una entry potrebbe essere matchata esattamente
-            # dalla domanda, e un'altra entry potrebbe essere matchata esattamente da una variante.
-            # Il controllo 'if entry not in matched_entries' previene che la STESSA entry
-            # venga aggiunta più volte se la query matcha sia la sua domanda che una sua variante.
-
-        # Controlla le varianti della domanda solo se non già matchata tramite la domanda principale
-        # per questa specifica entry.
-        if entry not in matched_entries:
-            varianti = entry.get("varianti_domanda", [])
-            if isinstance(varianti, list):
-                for variante_text in varianti:
-                    normalized_variante = _normalize_text_for_search(variante_text)
-                    if normalized_variante == normalized_query:
-                        if entry not in matched_entries: # Dovrebbe essere sempre vero qui se non ha matchato la domanda
-                            matched_entries.append(entry)
-                        break # Trovato un match esatto in varianti per QUESTA entry, inutile controllare altre varianti della stessa entry.
-
-    return matched_entries
-
-def search_fuzzy(query: str, knowledge_base_entries: list[dict], threshold: int = 80) -> list[tuple[dict, float]]:
-    """
-    Cerca corrispondenze fuzzy (simili) della query nella knowledge base.
-
-    Utilizza rapidfuzz.fuzz.WRatio per calcolare la similarità tra la query e
-    i campi "domanda" e "varianti_domanda" di ogni voce, tenendo conto
-    delle differenze di lunghezza e ordine delle parole.
-
-    Args:
-        query (str): La stringa di ricerca.
-        knowledge_base_entries (list[dict]): La knowledge base (lista di dizionari/voci).
-        threshold (int, optional): La soglia minima di similarità (0-100)
-                                   per considerare una corrispondenza. Default a 80.
-
-    Returns:
-        list[tuple[dict, float]]: Una lista di tuple, dove ogni tupla contiene
-                                  la voce corrispondente e il punteggio di similarità massimo
-                                  trovato per quella voce. Restituisce una lista vuota se
-                                  non ci sono match sopra la soglia o se l'input non è valido.
-    """
-    if not query or not isinstance(query, str) or \
-       not isinstance(knowledge_base_entries, list) or not knowledge_base_entries:
-        return []
-
-    normalized_query = _normalize_text_for_search(query)
-    if not normalized_query:
-        return []
-
-    potential_matches = {} # Usiamo un dizionario per tenere traccia del miglior score per entry ID
-
-    for entry in knowledge_base_entries:
-        entry_id = entry.get("id", None) # Assumiamo che le entry abbiano un ID univoco
-        if entry_id is None:
-            # Se non c'è ID, non possiamo garantire l'unicità del miglior match per entry
-            # Potremmo usare l'oggetto entry stesso come chiave, ma è meno pulito.
-            # Per ora, saltiamo le entry senza ID per il fuzzy matching o le trattiamo individualmente.
-            # Qui scegliamo di calcolare comunque, ma l'aggiornamento di potential_matches potrebbe non essere ottimale.
-            # Un approccio migliore sarebbe generare un hash dell'entry o usare l'indice nella lista.
-            # Per semplicità, qui usiamo l'ID se presente, altrimenti non aggiorniamo in modo intelligente.
-            pass
-
-        current_max_score_for_entry = 0
-
-        # Controlla la domanda principale
-        domanda_text = entry.get("domanda", "")
-        normalized_domanda = _normalize_text_for_search(domanda_text)
-        if normalized_domanda:
-            score_domanda = fuzz.WRatio(normalized_query, normalized_domanda)
-            if score_domanda > current_max_score_for_entry:
-                current_max_score_for_entry = score_domanda
-
-        # Controlla le varianti della domanda
-        varianti = entry.get("varianti_domanda", [])
-        if isinstance(varianti, list):
-            for variante_text in varianti:
-                normalized_variante = _normalize_text_for_search(variante_text)
-                if normalized_variante:
-                    score_variante = fuzz.WRatio(normalized_query, normalized_variante)
-                    if score_variante > current_max_score_for_entry:
-                        current_max_score_for_entry = score_variante
-
-        if current_max_score_for_entry >= threshold:
-            # Se l'entry ha un ID e abbiamo già un punteggio per esso, aggiorna solo se il nuovo è migliore
-            # Questo previene che la stessa entry appaia più volte se diverse sue parti matchano sopra soglia.
-            # Vogliamo solo il miglior match per entry.
-            if entry_id is not None:
-                if entry_id not in potential_matches or current_max_score_for_entry > potential_matches[entry_id][1]:
-                    potential_matches[entry_id] = (entry, current_max_score_for_entry)
-            else:
-                # Entry senza ID: la aggiungiamo direttamente. Potrebbe portare a "duplicati logici" se non gestita attentamente.
-                # Per questo scenario, aggiungeremo una tupla (entry, score) a una lista e poi la filtreremo.
-                # Alternativa: non supportare entry senza ID in fuzzy search o generare un ID temporaneo.
-                # Semplificazione: per ora, aggiungiamo direttamente se non usiamo ID come chiave.
-                # Rivediamo: usiamo una lista e filtriamo dopo per mantenere le cose semplici se ID non è affidabile.
-                # Cambio approccio: usiamo una lista di tuple (score, entry_object_itself) per evitare problemi con ID.
-                # Questo significa che una entry potrebbe apparire più volte se diverse sue parti (domanda, variante1, variante2)
-                # indipendentemente superano la soglia con score diversi. Il sort e il pick del top N gestirà questo.
-                # NO, l'obiettivo è il *miglior score per entry*.
-                # Quindi, il dizionario basato su ID (o un hash dell'entry) è più corretto.
-                # Se l'ID non è presente o non affidabile, si può usare l'indice originale o l'oggetto stesso come chiave (se hashable).
-                # Per ora, assumiamo che l'ID sia il modo per identificare unicamente un'entry.
-                # Se l'ID è None, potremmo usare l'oggetto entry come chiave se è hashable,
-                # ma i dizionari non sono hashable. Quindi, è meglio avere ID.
-                # Se non c'è ID, potremmo non includerla o usare l'indice.
-                # Per semplicità, se non c'è ID, la entry viene aggiunta con il suo score
-                # e si affida al chiamante la gestione di eventuali "duplicati logici" se più parti matchano.
-                # Riconsiderazione: Il modo più pulito è mantenere il dizionario potential_matches[entry_id]
-                # e gestire le entry senza ID come un caso speciale o richiedere che tutte le entry abbiano un ID.
-                # Per questa implementazione, se manca l'ID, usiamo l'oggetto entry stesso se è immutabile,
-                # ma dato che è un dict, non lo è.
-                # Soluzione: Iteriamo e teniamo traccia del miglior punteggio per *oggetto entry*.
-                # Non usiamo ID per il dict, ma l'oggetto entry stesso se possibile, o un suo rappresentante.
-                # Più semplice: creare una lista di (entry, score) e poi filtrare per avere solo il miglior score per entry unica.
-                # Questo è computazionalmente più costoso.
-                # L'approccio con dict[entry_id] è il migliore se gli ID sono affidabili.
-                # Se non lo sono, si può usare un set di entry già processate per il punteggio più alto.
-
-                # Approccio finale per search_fuzzy:
-                # 1. Itera su tutte le entries.
-                # 2. Per ogni entry, calcola il massimo punteggio fuzzy tra la query e (domanda, varianti).
-                # 3. Se questo max_score_for_entry >= threshold, aggiungi (entry, max_score_for_entry) a una lista di risultati.
-                # Non c'è bisogno di preoccuparsi di duplicati qui perché ogni entry viene processata una volta.
-                # La logica precedente era troppo complessa.
-                pass # La logica di aggiornamento di potential_matches è già fuori dal loop interno.
-
-    # Ricostruisci la lista dai valori del dizionario (se si usa l'approccio con ID)
-    # return list(potential_matches.values())
-    # Se invece si costruisce una lista semplice e si vuole il miglior score per entry:
-    # (Questo è implicito se calcoliamo max_score_for_entry e aggiungiamo solo una volta per entry)
-
-    # Semplificazione della logica di `search_fuzzy` come descritto sopra:
-    # L'obiettivo è restituire una lista di tuple (entry, punteggio_massimo_per_quella_entry)
-    # solo se punteggio_massimo_per_quella_entry >= threshold.
-
-    # Reset della logica per `search_fuzzy` per maggiore chiarezza e correttezza:
-    results_with_scores = []
-    processed_entry_ids = set() # Per evitare di processare/aggiungere la stessa entry più volte se gli ID non sono unici
-
-    for entry in knowledge_base_entries:
-        entry_id = entry.get("id") # Usiamo l'ID per tracciare le entry uniche
-
-        # Se l'ID non è None e l'abbiamo già processato con un punteggio più alto, saltiamo.
-        # Questo non è necessario se calcoliamo il max_score_for_entry e poi decidiamo.
-        # La logica di avere un solo (entry, score) per entry è più semplice.
-
-        max_score_for_this_entry = 0
-
-        domanda_text = entry.get("domanda", "")
-        normalized_domanda = _normalize_text_for_search(domanda_text)
-        if normalized_domanda:
-            score = fuzz.WRatio(normalized_query, normalized_domanda)
-            if score > max_score_for_this_entry:
-                max_score_for_this_entry = score
-
-        varianti = entry.get("varianti_domanda", [])
-        if isinstance(varianti, list):
-            for variante_text in varianti:
-                normalized_variante = _normalize_text_for_search(variante_text)
-                if normalized_variante:
-                    score = fuzz.WRatio(normalized_query, normalized_variante)
-                    if score > max_score_for_this_entry:
-                        max_score_for_this_entry = score
-
-        if max_score_for_this_entry >= threshold:
-            # Per evitare di aggiungere la stessa entry più volte se gli ID sono duplicati o mancanti
-            # e stiamo solo iterando, potremmo voler aggiungere solo l'entry con il suo miglior punteggio.
-            # Se gli ID sono unici, questo non è un problema. Se non lo sono, potremmo avere duplicati.
-            # Assumiamo che le entry siano oggetti distinti anche se gli ID potessero non esserlo.
-            # L'approccio più semplice è aggiungere (entry, max_score_for_this_entry)
-            results_with_scores.append((entry, max_score_for_this_entry))
-
-    return results_with_scores
-
-
-def search(query: str, file_path: str = DEFAULT_KB_PATH, fuzzy_threshold: int = 80) -> list[tuple[dict, float]]:
-    """
-    Funzione di alto livello per eseguire una ricerca nella knowledge base.
-    Combina risultati da ricerca esatta e fuzzy, calcolando un punteggio di confidenza
-    per ciascun risultato usando calculate_confidence_score.
-    Gestisce i duplicati dando priorità ai match esatti.
-
-    Args:
-        query (str): La stringa di ricerca.
-        file_path (str, optional): Il percorso del file JSON della knowledge base.
-                                    Default a 'data/knowledge_base.json'.
-        fuzzy_threshold (int, optional): La soglia minima di similarità (0-100)
-                                         per considerare una corrispondenza fuzzy.
-                                         Default a 80.
-
-    Returns:
-        list[tuple[dict, float]]: Una lista di tuple (entry, score).
-                                  Restituisce una lista vuota se non ci sono corrispondenze
-                                  o in caso di errore nel caricamento della KB.
-    """
-    knowledge_base_entries = load_knowledge_base(file_path)
-    if not knowledge_base_entries:
-        return []
-
-    # Usiamo un dizionario per tenere traccia dei risultati e gestire i duplicati,
-    # dando priorità ai match esatti. La chiave è l'ID dell'entry.
-    # Le entry senza ID saranno gestite separatamente per evitare conflitti di chiave None.
-    results_with_id_map = {}  # entry_id -> (entry, score)
-    results_without_id_list = [] # list of (entry, score)
-
-    # 1. Ricerca esatta
-    exact_match_entries = search_exact(query, knowledge_base_entries)
-    for entry in exact_match_entries:
-        score = calculate_confidence_score(query, entry, is_exact_match=True)
-        entry_id = entry.get("id")
-        if entry_id is not None:
-            results_with_id_map[entry_id] = (entry, score)
-        else:
-            # Aggiungiamo entry esatte senza ID direttamente alla lista separata.
-            # Potenziali duplicati per entry senza ID saranno gestiti dopo se necessario,
-            # ma per ora, un match esatto senza ID viene aggiunto.
-            results_without_id_list.append((entry, score))
-
-    # 2. Ricerca fuzzy
-    # search_fuzzy restituisce (entry, internal_fuzzy_score) per entry sopra la sua soglia.
-    # Noi dobbiamo usare calculate_confidence_score per il punteggio finale.
-    fuzzy_candidates_with_internal_scores = search_fuzzy(query, knowledge_base_entries, threshold=fuzzy_threshold)
-
-    for entry, _ in fuzzy_candidates_with_internal_scores: # Ignoriamo internal_fuzzy_score
-        entry_id = entry.get("id")
-
-        if entry_id is not None:
-            if entry_id in results_with_id_map:
-                continue # Già presente come match esatto, che ha priorità.
-
-            # Calcola lo score con la funzione standardizzata
-            score = calculate_confidence_score(query, entry, is_exact_match=False)
-
-            # Aggiungi solo se il punteggio ricalcolato soddisfa ancora la soglia
-            if score >= fuzzy_threshold:
-                results_with_id_map[entry_id] = (entry, score)
-        else:
-            # Gestione delle entry fuzzy senza ID
-            # Calcola lo score con la funzione standardizzata
-            score = calculate_confidence_score(query, entry, is_exact_match=False)
-            if score >= fuzzy_threshold:
-                # Per le entry senza ID, dobbiamo evitare di aggiungere duplicati se la stessa entry
-                # (senza ID) è già in results_without_id_list da un match esatto.
-                # Questo è complicato perché l'identità dell'oggetto è l'unico modo per confrontarli.
-                is_duplicate_exact_no_id = False
-                for ex_entry_no_id, _ in results_without_id_list:
-                    if ex_entry_no_id is entry: # Stesso oggetto in memoria
-                        is_duplicate_exact_no_id = True
-                        break
-                if not is_duplicate_exact_no_id:
-                    # Evita di aggiungere la stessa entry fuzzy (senza ID) più volte se compare in fuzzy_candidates
-                    # Tuttavia, search_fuzzy dovrebbe già restituire entry uniche.
-                    # Aggiungiamo alla lista; l'ordinamento e il limite verranno gestiti dopo se necessario.
-                    # Per ora, aggiungiamo tutte le entry fuzzy valide senza ID che non erano già esatte senza ID.
-                    results_without_id_list.append((entry, score))
-
-
-    # Combina i risultati
-    # I valori da results_with_id_map più quelli in results_without_id_list
-    final_results = list(results_with_id_map.values()) + results_without_id_list
-
-    # Ordina i risultati in base allo score, in ordine decrescente
-    final_results.sort(key=lambda x: x[1], reverse=True)
-
-    return final_results
-
-
-if __name__ == '__main__':
-    # Esempio di utilizzo aggiornato per testare anche fuzzy
-    kb_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'knowledge_base.json')
-
-    print("--- Test load_knowledge_base ---")
-    entries = load_knowledge_base(kb_path)
-    if entries:
-        print(f"Caricate {len(entries)} voci dalla knowledge base.")
-        # print("Prima entry:", entries[0])
-    else:
-        print("Knowledge base non caricata o vuota.")
-
-    # Esempi di test per search_fuzzy e la nuova logica di search
-    if entries:
-        print("\n--- Test search_fuzzy ---")
-        fuzzy_query = "cos'è l'energa?" # Leggero errore di battitura
-        fuzzy_results_with_scores = search_fuzzy(fuzzy_query, entries, threshold=75)
-        print(f"Risultati fuzzy per '{fuzzy_query}' (soglia 75): {len(fuzzy_results_with_scores)} trovati.")
-        for entry, score in fuzzy_results_with_scores:
-            print(f"  ID: {entry.get('id')}, Domanda: {entry.get('domanda')}, Score: {score:.2f}")
-
-        print("\n--- Test search (con fallback a fuzzy) ---")
-        # Caso 1: Match esatto
-        exact_search_results = search("Cos'è Python?", file_path=kb_path)
-        print(f"Risultati search per 'Cos'è Python?': {len(exact_search_results)} trovati (dovrebbe essere esatto)")
-        if exact_search_results:
-            print(f"  ID: {exact_search_results[0].get('id')}, Risposta: {exact_search_results[0].get('risposta')[:30]}...")
-
-        # Caso 2: Match solo fuzzy
-        fuzzy_search_results = search("cos'è l'energa?", file_path=kb_path, fuzzy_threshold=75)
-        print(f"Risultati search per 'cos'è l'energa?': {len(fuzzy_search_results)} trovati (dovrebbe essere fuzzy ordinato)")
-        for r in fuzzy_search_results:
-            print(f"  ID: {r.get('id')}, Domanda: {r.get('domanda')}")
-
-        # Caso 3: Nessun match
-        no_match_results = search("domanda super casuale e inesistente xyz", file_path=kb_path, fuzzy_threshold=75)
-        print(f"Risultati search per 'domanda super casuale e inesistente xyz': {len(no_match_results)} trovati.")
-
-    # Test con file non esistente per la funzione search
-    print("\n--- Test search con file KB non esistente (per search) ---")
-    results_non_existent_kb = search("qualsiasi cosa", file_path="path/inesistente/kb.json")
-    print(f"Risultati con KB non esistente: {len(results_non_existent_kb)} trovati.")
-
-    # Test con JSON malformato (crea un file temporaneo malformato)
-    malformed_json_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'malformed_kb.json')
-    with open(malformed_json_path, 'w') as f:
-        f.write("{'invalid_json': ") # JSON non valido
-
-    print("\n--- Test search con JSON malformato ---")
-    results_malformed_kb = search("qualsiasi cosa", file_path=malformed_json_path)
-    print(f"Risultati con KB malformata: {len(results_malformed_kb)} trovati.")
-    os.remove(malformed_json_path) # Pulisci file temporaneo
-
-    print("\n--- Test search_exact con query minuscola e KB con maiuscola ---")
-    if entries:
-        test_query_case = "cos'è l'energia?"
-        results_case = search_exact(test_query_case, entries)
-        print(f"Risultati per '{test_query_case}': {len(results_case)} trovati.")
-        if results_case:
-            for r in results_case:
-                print(f"  ID: {r.get('id')}, Domanda: {r.get('domanda')}")
-    else:
-        print("Skipping case test, KB non caricata.")
-
-    # Test con KB che è solo una lista (non un dict con "entries")
-    list_kb_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'list_kb.json')
-    sample_list_kb = [{"id":100, "domanda":"Test domanda lista", "varianti_domanda":["variante lista"], "risposta":"Risposta lista"}]
-    with open(list_kb_path, 'w', encoding='utf-8') as f:
-        json.dump(sample_list_kb, f)
-    print("\n--- Test search con KB come lista diretta ---")
-    results_list_kb = search("Test domanda lista", file_path=list_kb_path)
-    print(f"Risultati per 'Test domanda lista' (KB come lista): {len(results_list_kb)} trovati.")
-    if results_list_kb:
-         print(f"  ID: {results_list_kb[0].get('id')}, Domanda: {results_list_kb[0].get('domanda')}")
-    os.remove(list_kb_path)
-
-    # Test con KB che ha struttura errata (non dict con "entries" né lista)
-    wrong_structure_kb_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'wrong_structure_kb.json')
-    wrong_structure_kb = {"data": "valore"}
-    with open(wrong_structure_kb_path, 'w', encoding='utf-8') as f:
-        json.dump(wrong_structure_kb, f)
-    print("\n--- Test search con KB con struttura errata ---")
-    results_wrong_kb = search("qualsiasi", file_path=wrong_structure_kb_path)
-    print(f"Risultati per 'qualsiasi' (KB struttura errata): {len(results_wrong_kb)} trovati.")
-    os.remove(wrong_structure_kb_path)
-
-    print("\nFine dei test rapidi.")
+import pytest
+from src.search_engine import (
+    load_knowledge_base,
+    search_exact,
+    search_fuzzy,
+    search,
+    calculate_confidence_score
+)
+
+# Dati di esempio per i test
+SAMPLE_KB_DATA = {
+    "entries": [
+        {
+            "id": 1,
+            "domanda": "Cos'è l'Energia?",
+            "varianti_domanda": ["Definizione Energia", "Spiegazione Energia", "TermineComune"],
+            "risposta": "L'energia è la capacità di un sistema di compiere lavoro."
+        },
+        {
+            "id": 2,
+            "domanda": "Cos'è Python?",
+            "varianti_domanda": ["Definizione Python", "Linguaggio Python"],
+            "risposta": "Python è un linguaggio di programmazione interpretato..."
+        },
+        {
+            "id": 3,
+            "domanda": "TermineComune",
+            "varianti_domanda": [],
+            "risposta": "Questa è la risposta per TermineComune."
+        }
+    ]
+}
+
+@pytest.fixture(scope="module", autouse=True)
+def create_test_kb_file(tmp_path_factory):
+    """Crea un file KB di test valido per tutti i test nel modulo."""
+    kb_path = tmp_path_factory.mktemp("data") / "knowledge_base.json"
+    with open(kb_path, 'w', encoding='utf-8') as f:
+        json.dump(SAMPLE_KB_DATA, f)
+    # Rende il percorso disponibile globalmente per i test (sebbene non sia la best practice di pytest)
+    # è più semplice che passare tmp_path a ogni test. In alternativa, ogni test che
+    # ne ha bisogno può usare la fixture.
+    global VALID_KB_PATH
+    VALID_KB_PATH = str(kb_path)
+    return str(kb_path)
+
+@pytest.fixture
+def sample_kb():
+    """Fornisce i dati della KB come oggetto Python."""
+    return SAMPLE_KB_DATA["entries"]
+
+@pytest.fixture
+def sample_kb_for_fuzzy(tmp_path):
+    """Crea una KB specifica per i test di fuzzy matching."""
+    kb_data = {
+        "entries": [
+            {"id": 101, "domanda": "Cos'è l'intelligenza artificiale?", "varianti_domanda": ["Definizione IA"], "risposta": "Risposta IA"},
+            {"id": 102, "domanda": "Come funziona il machine learning?", "varianti_domanda": [], "risposta": "Risposta ML"},
+            {"id": 103, "domanda": "Test Driven Development", "varianti_domanda": ["TDD"], "risposta": "Risposta TDD"}
+        ]
+    }
+    fuzzy_kb_file = tmp_path / "fuzzy_kb.json"
+    with open(fuzzy_kb_file, 'w', encoding='utf-8') as f:
+        json.dump(kb_data, f)
+    return kb_data["entries"]
+
+# Test per load_knowledge_base
+def test_load_knowledge_base_success():
+    """Verifica che il caricamento di una KB valida funzioni."""
+    entries = load_knowledge_base(VALID_KB_PATH)
+    assert len(entries) == 3
+    assert entries[0]["id"] == 1
+
+def test_load_knowledge_base_file_not_found():
+    """Verifica che gestisca correttamente un file non trovato."""
+    entries = load_knowledge_base("path/inesistente/kb.json")
+    assert entries == []
+
+def test_load_knowledge_base_invalid_json(tmp_path):
+    """Verifica che gestisca correttamente un file JSON malformato."""
+    invalid_json_file = tmp_path / "invalid.json"
+    with open(invalid_json_file, 'w') as f:
+        f.write("{'invalid_json': ")
+    entries = load_knowledge_base(str(invalid_json_file))
+    assert entries == []
+
+# Test per search_exact
+def test_search_exact_match_in_domanda(sample_kb):
+    results = search_exact("Cos'è Python?", sample_kb)
+    assert len(results) == 1
+    assert results[0]["id"] == 2
+
+def test_search_exact_match_in_varianti(sample_kb):
+    results = search_exact("Linguaggio Python", sample_kb)
+    assert len(results) == 1
+    assert results[0]["id"] == 2
+
+def test_search_exact_case_insensitive(sample_kb):
+    results = search_exact("cos'è python?", sample_kb)
+    assert len(results) == 1
+    assert results[0]["id"] == 2
+
+def test_search_exact_no_match(sample_kb):
+    results = search_exact("Questa domanda non esiste", sample_kb)
+    assert len(results) == 0
+
+def test_search_exact_multiple_matches(sample_kb):
+    results = search_exact("TermineComune", sample_kb)
+    assert len(results) == 2
+    ids_found = {entry["id"] for entry in results}
+    assert {1, 3} == ids_found
+
+# Test per search_fuzzy
+def test_search_fuzzy_finds_similar_match(sample_kb_for_fuzzy):
+    query = "machine learnin" # Errore di battitura
+    results = search_fuzzy(query, sample_kb_for_fuzzy, threshold=80)
+    assert len(results) == 1
+    assert results[0][0]["id"] == 102
+    assert results[0][1] >= 80
+
+def test_search_fuzzy_respects_threshold(sample_kb_for_fuzzy):
+    query = "machine learnin"
+    results_high_threshold = search_fuzzy(query, sample_kb_for_fuzzy, threshold=95)
+    assert len(results_high_threshold) == 0
+
+# Test per la funzione di alto livello search
+def test_search_function_success():
+    results = search("Cos'è Python?", file_path=VALID_KB_PATH)
+    assert len(results) >= 1
+    entry, score = results[0]
+    assert entry["id"] == 2
+    assert score == 100.0
+
+def test_search_function_no_match():
+    results = search("Questa domanda non esiste", file_path=VALID_KB_PATH)
+    assert len(results) == 0
+
+def test_search_combines_exact_and_fuzzy_correctly(tmp_path, sample_kb_for_fuzzy):
+    combined_kb_data = SAMPLE_KB_DATA["entries"] + sample_kb_for_fuzzy
+    combined_kb_file = tmp_path / "combined_test_kb.json"
+    with open(combined_kb_file, 'w', encoding='utf-8') as f:
+        json.dump({"entries": combined_kb_data}, f)
+
+    results_python = search("Cos'è Python?", file_path=str(combined_kb_file), fuzzy_threshold=70)
+    assert len(results_python) >= 1
+    assert results_python[0][0]["id"] == 2
+    assert results_python[0][1] == 100.0
+
+    ids_in_python_results = [e["id"] for e,s in results_python]
+    assert ids_in_python_results.count(2) == 1
+
+    results_ia = search("intelligenza artif", file_path=str(combined_kb_file), fuzzy_threshold=80)
+    assert len(results_ia) == 1
+    entry_ia, score_ia = results_ia[0]
+    assert entry_ia["id"] == 101
+    assert 80.0 <= score_ia < 100.0
+
+# Test per calculate_confidence_score
+class TestCalculateConfidenceScore:
+    def test_exact_match_returns_100(self):
+        entry = {"id": 1, "domanda": "Qualsiasi domanda"}
+        query = "Qualsiasi domanda"
+        assert calculate_confidence_score(query, entry, is_exact_match=True) == 100.0
+
+    def test_fuzzy_match_calculates_score(self):
+        entry = {"id": 1, "domanda": "Cos'è l'intelligenza artificiale?", "varianti_domanda": ["Definizione IA"]}
+        query = "cose linteligenza artificial"
+        score = calculate_confidence_score(query, entry, is_exact_match=False)
+        assert 80 < score < 100
+
+    def test_empty_query_returns_zero_score(self):
+        entry = {"id": 1, "domanda": "Domanda valida"}
+        assert calculate_confidence_score("", entry, is_exact_match=False) == 0.0
+
+# Test per ordinamento e limite
+class TestSortingAndLimiting:
+    @pytest.fixture
+    def kb_for_final_test(self, tmp_path):
+        test_entries = [
+            {"id": 10, "domanda": "Risposta esatta al cento per cento"},
+            {"id": 20, "domanda": "Risposta simile al novanta per cento"},
+            {"id": 30, "domanda": "Risposta quasi all'ottanta per cento"},
+            {"id": 40, "domanda": "Questa è una risposta diversa"},
+        ]
+        kb_file = tmp_path / "final_test_kb.json"
+        with open(kb_file, 'w', encoding='utf-8') as f:
+            json.dump({"entries": test_entries}, f)
+        return str(kb_file)
+
+    def test_search_results_are_sorted_by_score(self, kb_for_final_test):
+        query = "Risposta"
+        results = search(query, file_path=kb_for_final_test, fuzzy_threshold=50)
+        assert len(results) == 4
+        scores = [score for entry, score in results]
+        assert scores == sorted(scores, reverse=True), "I risultati non sono ordinati per punteggio."
+        
+        expected_id_order = [10, 20, 30, 40]
+        actual_id_order = [entry['id'] for entry, score in results]
+        assert actual_id_order == expected_id_order
+
+    def test_limit_returns_correct_number_of_results(self, kb_for_final_test):
+        query = "Risposta"
+        results = search(query, file_path=kb_for_final_test, fuzzy_threshold=50, limit=2)
+        assert len(results) == 2
+        assert results[0][0]["id"] == 10
+        assert results[1][0]["id"] == 20
+
+    def test_limit_zero_returns_empty_list(self, kb_for_final_test):
+        query = "Risposta"
+        results = search(query, file_path=kb_for_final_test, fuzzy_threshold=50, limit=0)
+        assert len(results) == 0
+
+    def test_limit_greater_than_results_returns_all(self, kb_for_final_test):
+        query = "Risposta"
+        results = search(query, file_path=kb_for_final_test, fuzzy_threshold=50, limit=10)
+        assert len(results) == 4
