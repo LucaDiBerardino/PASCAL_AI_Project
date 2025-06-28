@@ -309,12 +309,14 @@ def search_fuzzy(query: str, knowledge_base_entries: list[dict], threshold: int 
     return results_with_scores
 
 
-def search(query: str, file_path: str = DEFAULT_KB_PATH, fuzzy_threshold: int = 80) -> list[tuple[dict, float]]:
+def search(query: str, file_path: str = DEFAULT_KB_PATH, fuzzy_threshold: int = 80, limit: int | None = None) -> list[tuple[dict, float]]:
     """
     Funzione di alto livello per eseguire una ricerca nella knowledge base.
     Combina risultati da ricerca esatta e fuzzy, calcolando un punteggio di confidenza
     per ciascun risultato usando calculate_confidence_score.
     Gestisce i duplicati dando priorità ai match esatti.
+    I risultati sono ordinati per punteggio in ordine decrescente.
+    Può limitare il numero di risultati restituiti.
 
     Args:
         query (str): La stringa di ricerca.
@@ -323,9 +325,13 @@ def search(query: str, file_path: str = DEFAULT_KB_PATH, fuzzy_threshold: int = 
         fuzzy_threshold (int, optional): La soglia minima di similarità (0-100)
                                          per considerare una corrispondenza fuzzy.
                                          Default a 80.
+        limit (int | None, optional): Il numero massimo di risultati da restituire.
+                                      Se None o un intero non valido (es. negativo),
+                                      vengono restituiti tutti i risultati.
+                                      Se 0, restituisce una lista vuota. Default a None.
 
     Returns:
-        list[tuple[dict, float]]: Una lista di tuple (entry, score).
+        list[tuple[dict, float]]: Una lista di tuple (entry, score) ordinate ed eventualmente limitate.
                                   Restituisce una lista vuota se non ci sono corrispondenze
                                   o in caso di errore nel caricamento della KB.
     """
@@ -395,7 +401,17 @@ def search(query: str, file_path: str = DEFAULT_KB_PATH, fuzzy_threshold: int = 
     # I valori da results_with_id_map più quelli in results_without_id_list
     final_results = list(results_with_id_map.values()) + results_without_id_list
 
-    # Non è richiesto ordinamento o limite in questa fase.
+    # Ordina i risultati in base allo score, in ordine decrescente
+    final_results.sort(key=lambda x: x[1], reverse=True)
+
+    # Applica il limite se specificato e valido
+    if isinstance(limit, int):
+        if limit == 0:
+            return []
+        if limit > 0:
+            return final_results[:limit]
+
+    # Se limit è None, negativo, o non un intero, restituisce tutti i risultati ordinati
     return final_results
 
 

@@ -324,6 +324,212 @@ def test_search_fuzzy_results_are_not_necessarily_sorted_at_this_stage(sample_kb
     ids_found = {item[0]["id"] for item in results}
     assert {102, 104} == ids_found
 
+    # Verifica l'ordinamento: l'ID 102 (match migliore) dovrebbe venire prima dell'ID 104
+    scores = [item[1] for item in results]
+    assert scores[0] >= scores[1], "I risultati non sono ordinati per punteggio decrescente."
+    # Verifica che l'ID 102 sia effettivamente il primo se il suo punteggio è maggiore
+    # Questo è un controllo più specifico se conosciamo i punteggi attesi
+    score_id102 = next(item[1] for item in results if item[0]["id"] == 102)
+    score_id104 = next(item[1] for item in results if item[0]["id"] == 104)
+
+    if score_id102 > score_id104:
+        assert results[0][0]["id"] == 102, "L'entry con ID 102 (punteggio più alto) non è la prima."
+        assert results[1][0]["id"] == 104, "L'entry con ID 104 (punteggio più basso) non è la seconda."
+    elif score_id104 > score_id102: # Improbabile per questa query ma per completezza
+        assert results[0][0]["id"] == 104
+        assert results[1][0]["id"] == 102
+    # Se i punteggi sono uguali, l'ordine tra loro non è garantito oltre all'essere raggruppati.
+
+
+def test_search_results_are_sorted_by_score(sample_kb_for_fuzzy, tmp_path):
+    # Rinominato da test_search_fuzzy_results_are_not_necessarily_sorted_at_this_stage
+    # Aggiungiamo una entry che matcha meno bene ma sopra soglia
+    kb_for_sort_test = sample_kb_for_fuzzy + [
+        {"id": 104, "domanda": "Machine", "varianti_domanda": [], "risposta": "Solo Machine"}, # Punteggio più basso per "machine learn"
+        {"id": 105, "domanda": "Learn Machine Now", "varianti_domanda": [], "risposta": "Learn Machine Now"} # Punteggio intermedio per "machine learn"
+    ]
+    fuzzy_kb_file = tmp_path / "fuzzy_sort_test_kb.json"
+    with open(fuzzy_kb_file, 'w', encoding='utf-8') as f:
+        json.dump({"entries": kb_for_sort_test}, f)
+
+    # "machine learn" dovrebbe matchare ID 102 (machine learning) con score alto,
+    # ID 105 (Learn Machine Now) con score medio,
+    # e ID 104 (Machine) con score più basso.
+    query = "machine learn"
+    results = search(query, file_path=str(fuzzy_kb_file), fuzzy_threshold=60) # Soglia bassa per includere tutti
+    assert len(results) == 3, "Dovrebbero esserci 3 risultati per il test di ordinamento"
+
+    # Verifica il formato e che i punteggi siano decrescenti
+    previous_score = float('inf')
+    ids_found = []
+    for item in results:
+        assert isinstance(item, tuple)
+        assert len(item) == 2
+        entry, score = item
+        assert isinstance(entry, dict)
+        assert isinstance(score, float)
+        assert 60.0 <= score <= 100.0
+        assert score <= previous_score, f"L'ordinamento per punteggio non è corretto. Score precedente: {previous_score}, Score attuale: {score} per ID {entry['id']}"
+        previous_score = score
+        ids_found.append(entry['id'])
+
+    # Verifica che gli ID attesi siano presenti (l'ordine è già verificato sopra)
+    assert set(ids_found) == {102, 104, 105}
+
+    # Per maggiore robustezza, otteniamo i punteggi specifici se possibile
+    # (dipende da implementazione esatta di fuzz.WRatio e normalizzazione)
+    # Questo è più per debug, l'asserzione `score <= previous_score` è la chiave.
+    score_id102 = next((s for e, s in results if e['id'] == 102), None)
+    score_id105 = next((s for e, s in results if e['id'] == 105), None)
+    score_id104 = next((s for e, s in results if e['id'] == 104), None)
+
+    assert score_id102 is not None and score_id105 is not None and score_id104 is not None, "Non tutte le entry attese sono state trovate"
+
+    # L'ordine atteso dei punteggi è: score_id102 > score_id105 > score_id104
+    # Questo è già implicitamente controllato dal loop sopra, ma possiamo asserirlo esplicitamente
+    # se i punteggi sono distinti.
+    if score_id102 > score_id105 and score_id105 > score_id104:
+        assert ids_found == [102, 105, 104], "L'ordine degli ID non corrisponde all'ordine atteso dei punteggi."
+    # Se alcuni punteggi sono uguali, l'ordine relativo di quegli elementi specifici non è garantito,
+    # ma l'ordinamento generale per punteggio deve ancora valere.
+
+class TestSearchLimitParameter:
+    """Suite di test per la funzionalità del parametro 'limit' nella funzione search."""
+
+    @pytest.fixture
+    def kb_for_limit_test(self, tmp_path):
+        """Prepara una KB con diverse entry per testare il limit."""
+        # ID 101: Intelligenza Artificiale (score alto per "intelligenza")
+        # ID 102: Machine Learning (score medio per "machine")
+        # ID 103: TDD (score basso per "test")
+        # ID 2: Python (score alto per "python")
+        # ID 1: Energia (score medio per "energia")
+        kb_data = {
+            "entries": [
+                SAMPLE_KB_DATA["entries"][0], # ID 1 "Cos'è l'Energia?"
+                SAMPLE_KB_DATA["entries"][1], # ID 2 "Cos'è Python?"
+                # SAMPLE_KB_DATA["entries"][2], # ID 3 "TermineComune" - escludiamo per semplificare i punteggi
+                {
+                    "id": 101, "domanda": "Cos'è l'intelligenza artificiale?",
+                    "varianti_domanda": ["Definizione IA"], "risposta": "Risposta IA"
+                },
+                {
+                    "id": 102, "domanda": "Come funziona il machine learning?",
+                    "varianti_domanda": ["Spiega machine learning"], "risposta": "Risposta ML"
+                },
+                {
+                    "id": 103, "domanda": "Test Driven Development",
+                    "varianti_domanda": ["TDD"], "risposta": "Risposta TDD"
+                }
+            ]
+        }
+        # Assicuriamoci che i punteggi siano distinguibili per il test di ordinamento + limite
+        # Per la query "intelligenza artificiale machine learning python energia test"
+        # ID 101 (IA) dovrebbe avere score più alto
+        # ID 102 (ML) score medio-alto
+        # ID 2 (Python) score medio
+        # ID 1 (Energia) score medio-basso
+        # ID 103 (TDD/Test) score basso
+
+        limit_test_kb_file = tmp_path / "limit_test_kb.json"
+        with open(limit_test_kb_file, 'w', encoding='utf-8') as f:
+            json.dump(kb_data, f)
+        return str(limit_test_kb_file)
+
+    def test_limit_positive_less_than_results(self, kb_for_limit_test):
+        """Testa limit con valore positivo minore del numero di risultati."""
+        # Query che dovrebbe restituire più di 2 risultati senza limite
+        query = "intelligenza artificiale machine learning python energia test"
+        all_results_no_limit = search(query, file_path=kb_for_limit_test, fuzzy_threshold=60)
+
+        # Assicuriamoci che ci siano abbastanza risultati per testare il limite
+        assert len(all_results_no_limit) > 2, "La query non ha prodotto abbastanza risultati per testare limit=2"
+
+        results = search(query, file_path=kb_for_limit_test, fuzzy_threshold=60, limit=2)
+        assert len(results) == 2
+        # Verifica che siano i primi 2 dalle ricerca non limitata (quindi i migliori punteggi)
+        assert results[0][0]["id"] == all_results_no_limit[0][0]["id"]
+        assert results[1][0]["id"] == all_results_no_limit[1][0]["id"]
+        assert results[0][1] >= results[1][1] # Verifica ordinamento
+
+    def test_limit_positive_greater_than_results(self, kb_for_limit_test):
+        """Testa limit con valore positivo maggiore del numero di risultati."""
+        query = "intelligenza artificiale machine learning" # Dovrebbe dare 2 risultati forti
+        all_results_no_limit = search(query, file_path=kb_for_limit_test, fuzzy_threshold=70)
+
+        results = search(query, file_path=kb_for_limit_test, fuzzy_threshold=70, limit=10)
+        assert len(results) == len(all_results_no_limit)
+        if len(all_results_no_limit) > 1:
+            assert results[0][1] >= results[-1][1] # Verifica ordinamento se ci sono risultati
+
+    def test_limit_zero(self, kb_for_limit_test):
+        """Testa limit uguale a 0."""
+        query = "python"
+        results = search(query, file_path=kb_for_limit_test, fuzzy_threshold=70, limit=0)
+        assert len(results) == 0
+
+    def test_limit_one(self, kb_for_limit_test):
+        """Testa limit uguale a 1."""
+        query = "intelligenza machine python energia test" # Query ampia
+        all_results_no_limit = search(query, file_path=kb_for_limit_test, fuzzy_threshold=60)
+        assert len(all_results_no_limit) > 1, "Servono più risultati per testare limit=1"
+
+        results = search(query, file_path=kb_for_limit_test, fuzzy_threshold=60, limit=1)
+        assert len(results) == 1
+        assert results[0][0]["id"] == all_results_no_limit[0][0]["id"] # Deve essere il migliore
+
+    def test_limit_negative_returns_all(self, kb_for_limit_test):
+        """Testa limit con valore negativo (dovrebbe restituire tutti i risultati)."""
+        query = "python machine"
+        all_results_no_limit = search(query, file_path=kb_for_limit_test, fuzzy_threshold=70)
+
+        results_negative_limit = search(query, file_path=kb_for_limit_test, fuzzy_threshold=70, limit=-5)
+        assert len(results_negative_limit) == len(all_results_no_limit)
+        # Verifica che l'ordine sia mantenuto
+        if len(all_results_no_limit) > 0:
+             ids_no_limit = [r[0]['id'] for r in all_results_no_limit]
+             ids_negative_limit = [r[0]['id'] for r in results_negative_limit]
+             assert ids_no_limit == ids_negative_limit
+
+
+    def test_limit_none_returns_all(self, kb_for_limit_test):
+        """Testa limit non fornito (None), deve restituire tutti i risultati."""
+        query = "energia test"
+        all_results_no_limit = search(query, file_path=kb_for_limit_test, fuzzy_threshold=60, limit=None)
+        # Confronta con una ricerca senza specificare limit (che dovrebbe essere lo stesso di limit=None)
+        results_default_limit = search(query, file_path=kb_for_limit_test, fuzzy_threshold=60)
+        assert len(all_results_no_limit) == len(results_default_limit)
+        if len(results_default_limit) > 0:
+            ids_no_limit = [r[0]['id'] for r in all_results_no_limit]
+            ids_default_limit = [r[0]['id'] for r in results_default_limit]
+            assert ids_no_limit == ids_default_limit
+
+
+    def test_limit_non_integer_returns_all(self, kb_for_limit_test):
+        """Testa limit con valore non intero (dovrebbe restituire tutti i risultati)."""
+        query = "intelligenza"
+        all_results_no_limit = search(query, file_path=kb_for_limit_test, fuzzy_threshold=70)
+
+        # Passiamo una stringa come limit, che non è un int
+        results_non_int_limit = search(query, file_path=kb_for_limit_test, fuzzy_threshold=70, limit="abc") # type: ignore
+        assert len(results_non_int_limit) == len(all_results_no_limit)
+        if len(all_results_no_limit) > 0:
+            ids_no_limit = [r[0]['id'] for r in all_results_no_limit]
+            ids_non_int_limit = [r[0]['id'] for r in results_non_int_limit]
+            assert ids_no_limit == ids_non_int_limit
+
+    def test_limit_with_no_results_from_search(self, kb_for_limit_test):
+        """Testa limit quando la ricerca iniziale non produce risultati."""
+        query = "querychesicuramentenonproducealcunrisultato"
+        results_limit_5 = search(query, file_path=kb_for_limit_test, fuzzy_threshold=95, limit=5)
+        assert len(results_limit_5) == 0
+
+        results_limit_0 = search(query, file_path=kb_for_limit_test, fuzzy_threshold=95, limit=0)
+        assert len(results_limit_0) == 0
+
+        results_no_limit = search(query, file_path=kb_for_limit_test, fuzzy_threshold=95)
+        assert len(results_no_limit) == 0
+
 
 def test_search_no_results_if_nothing_matches(tmp_path):
     fuzzy_kb_file = tmp_path / "fuzzy_test_kb.json" # usa la stessa kb dei test fuzzy
