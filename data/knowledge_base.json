@@ -278,6 +278,168 @@
       ],
       "related_ids": [],
       "category": "oil_gas, BOP, test, sicurezza"
+    },
+    {
+      "id": 16,
+      "domanda": "Cos'è un algoritmo?",
+      "varianti_domanda": [
+        "Definizione di algoritmo",
+        "Spiegami cos'è un algoritmo"
+      ],
+      "risposta": "Un algoritmo è una sequenza finita e ordinata di passaggi o istruzioni, progettata per risolvere un problema specifico o eseguire un compito. È alla base di qualsiasi programma per computer.",
+      "level": "general",
+      "specificity_score": 30,
+      "parent_concept": null,
+      "followup_suggestions": [
+        "Vuoi un esempio di algoritmo?",
+        "Qual è la differenza tra un algoritmo e un programma?"
+      ],
+      "related_ids": [17, 18],
+      "category": "informatica"
+    },
+    {
+      "id": 17,
+      "domanda": "Cos'è un linguaggio di programmazione?",
+      "varianti_domanda": [
+        "Cosa sono i linguaggi di programmazione?",
+        "Definizione di linguaggio di programmazione"
+      ],
+      "risposta": "Un linguaggio di programmazione è un linguaggio formale che fornisce ai programmatori un insieme di istruzioni per produrre output di vario tipo. Viene utilizzato per creare programmi che implementano algoritmi specifici.",
+      "level": "general",
+      "specificity_score": 35,
+      "parent_concept": 16,
+      "followup_suggestions": [
+        "Quali sono i principali linguaggi di programmazione?",
+        "Parlami del linguaggio Python"
+      ],
+      "related_ids": [18],
+      "category": "informatica"
+    },
+    {
+      "id": 18,
+      "domanda": "Cos'è Python?",
+      "varianti_domanda": [
+        "Parlami di Python",
+        "Cos'è il linguaggio Python?"
+      ],
+      "risposta": "Python è un linguaggio di programmazione di alto livello, interpretato, generico e multi-paradigma. È noto per la sua sintassi semplice e leggibile, che lo rende ideale per principianti, sviluppo rapido, scripting, intelligenza artificiale e analisi dei dati.",
+      "level": "specific",
+      "specificity_score": 50,
+      "parent_concept": 17,
+      "followup_suggestions": [],
+      "related_ids": [],
+      "category": "informatica"
+    },
+    {
+      "id": 19,
+      "domanda": "Cos'è la forza di gravità?",
+      "varianti_domanda": [
+        "Spiegami la gravità",
+        "Cos'è la gravità"
+      ],
+      "risposta": "La forza di gravità è una delle quattro forze fondamentali della natura. È una forza di attrazione che agisce tra due corpi dotati di massa. È la forza che ci tiene ancorati alla Terra e che governa il moto dei pianeti.",
+      "level": "general",
+      "specificity_score": 30,
+      "parent_concept": null,
+      "followup_suggestions": [
+        "Chi ha formulato la legge di gravitazione universale?",
+        "Cos'è un buco nero?"
+      ],
+      "related_ids": [20],
+      "category": "fisica"
+    },
+    {
+      "id": 20,
+      "domanda": "Chi era Isaac Newton?",
+      "varianti_domanda": [
+        "Parlami di Isaac Newton",
+        "Cosa ha fatto Newton?"
+      ],
+      "risposta": "Sir Isaac Newton è stato un matematico, fisico e astronomo inglese, considerato uno dei più grandi scienziati di tutti i tempi. È famoso per aver formulato le leggi del moto e la legge di gravitazione universale.",
+      "level": "specific",
+      "specificity_score": 45,
+      "parent_concept": 19,
+      "followup_suggestions": [],
+      "related_ids": [],
+      "category": "storia della scienza"
+    },
+    {
+      "id": 21,
+      "domanda": "Cos'è l'inerzia?",
+      "varianti_domanda": [
+        "Spiegami il principio di inerzia",
+        "Definizione di inerzia"
+      ],
+      "risposta": "L'inerzia è la tendenza di un corpo a mantenere il proprio stato di quiete o di moto rettilineo uniforme, a meno che non intervenga una forza esterna a modificarlo. È descritta dalla Prima Legge del Moto di Newton.",
+      "level": "general",
+      "specificity_score": 40,
+      "parent_concept": 19,
+      "followup_suggestions": [],
+      "related_ids": [20],
+      "category": "fisica"
+    },
+    {
+      "id": 22,
+      "domanda": "Cos'è l'intelligenza artificiale?",
+      "varianti_domanda": [
+        "Definizione di IA",
+        "Cosa significa AI?"
+      ],
+      "risposta": "L'Intelligenza Artificiale (IA o AI in inglese) è una branca dell'informatica che si occupa della creazione di sistemi in grado di eseguire compiti che normalmente richiedono l'intelligenza umana, come il ragionamento, l'apprendimento, la percezione e la risoluzione di problemi.",
+      "level": "general",
+      "specificity_score": 30,
+      "parent_concept": 16,
+      "followup_suggestions": [
+        "Quali sono i diversi tipi di IA?",
+        "Cos'è il machine learning?"
+      ],
+      "related_ids": [23],
+      "category": "informatica"
+    },
+    {
+      "id": 23,
+      "domanda": "Cos'è il machine learning?",
+      "varianti_domanda": [
+        "Definizione di machine learning",
+        "Spiegami l'apprendimento automatico"
+      ],
+      "risposta": "Il Machine Learning (apprendimento automatico) è un sottoinsieme dell'Intelligenza Artificiale. Si concentra sullo sviluppo di algoritmi che permettono a un computer di imparare dai dati e migliorare le proprie prestazioni nel tempo senza essere esplicitamente programmato per ogni compito.",
+      "level": "specific",
+      "specificity_score": 55,
+      "parent_concept": 22,
+      "followup_suggestions": [],
+      "related_ids": [],
+      "category": "informatica"
+    },
+    {
+      "id": 24,
+      "domanda": "Qual è la capitale d'Italia?",
+      "varianti_domanda": [
+        "Capitale Italia",
+        "Dimmi la capitale d'Italia"
+      ],
+      "risposta": "La capitale d'Italia è Roma.",
+      "level": "very_specific",
+      "specificity_score": 10,
+      "parent_concept": null,
+      "followup_suggestions": [],
+      "related_ids": [],
+      "category": "geografia"
+    },
+    {
+      "id": 25,
+      "domanda": "Come funziona un motore a combustione interna?",
+      "varianti_domanda": [
+        "Spiegami il motore a scoppio",
+        "Funzionamento motore auto"
+      ],
+      "risposta": "Un motore a combustione interna converte l'energia chimica di un carburante in energia meccanica. Il processo avviene in quattro fasi (o tempi): aspirazione della miscela aria-carburante, compressione, combustione (o scoppio) che spinge il pistone, e scarico dei gas combusti.",
+      "level": "general",
+      "specificity_score": 40,
+      "parent_concept": null,
+      "followup_suggestions": [],
+      "related_ids": [],
+      "category": "ingegneria"
     }
   ]
 }
